@@ -1,5 +1,6 @@
 from dataclasses import replace
 
+from digital_garden import config
 from digital_garden.domain import (
     BonsaiState,
     GardenState,
@@ -17,32 +18,46 @@ def advance_one_tick(state: GardenState) -> GardenState:
     moisture = clamp01(state.soil.moisture + soil_delta)
 
     bonsai = state.bonsai
-    if moisture < 0.40:
-        stress_delta = 0.012 + (0.40 - moisture) * 0.040
-    elif moisture > 0.70:
-        stress_delta = 0.012 + (moisture - 0.70) * 0.040
+    if moisture < config.MOISTURE_HEALTHY_MIN:
+        stress_delta = (
+            config.DRY_STRESS_BASE
+            + (config.MOISTURE_HEALTHY_MIN - moisture) * config.MOISTURE_STRESS_SCALE
+        )
+    elif moisture > config.MOISTURE_HEALTHY_MAX:
+        stress_delta = (
+            config.WET_STRESS_BASE
+            + (moisture - config.MOISTURE_HEALTHY_MAX) * config.MOISTURE_STRESS_SCALE
+        )
     else:
-        stress_delta = -0.008
+        stress_delta = -config.HEALTHY_STRESS_RECOVERY
 
     if bonsai.canopy_density < 0.25 or bonsai.canopy_density > 0.80:
-        stress_delta += 0.006
+        stress_delta += config.CANOPY_STRESS_DELTA
     stress = clamp01(bonsai.stress + stress_delta)
 
     if stress >= 0.75:
-        health_delta = -0.004
+        health_delta = -config.HEALTH_LOSS_SEVERE
     elif stress >= 0.50:
-        health_delta = -0.002
-    elif stress <= 0.20 and 0.40 <= moisture <= 0.70:
-        health_delta = 0.0015
+        health_delta = -config.HEALTH_LOSS_STRESSED
+    elif stress <= 0.20 and config.MOISTURE_HEALTHY_MIN <= moisture <= config.MOISTURE_HEALTHY_MAX:
+        health_delta = config.HEALTH_GAIN_PER_TICK
     else:
         health_delta = 0.0
-    health = max(0.15, clamp01(bonsai.health + health_delta))
+    health = max(config.BONSAI_HEALTH_FLOOR, clamp01(bonsai.health + health_delta))
 
-    favorable = health > 0.60 and stress < 0.35 and 0.40 <= moisture <= 0.70
-    growth = clamp01(bonsai.growth + (0.0004 if favorable else 0.0))
-    canopy_density = clamp01(bonsai.canopy_density + (0.0006 if health > 0.50 else 0.0))
-    ground_density = clamp01(advanced.ground.density + 0.0007 * (0.5 + humidity))
-    vine_extent = clamp01(advanced.vine.extent + 0.0005 * (0.5 + humidity))
+    favorable = (
+        health > 0.60
+        and stress < 0.35
+        and config.MOISTURE_HEALTHY_MIN <= moisture <= config.MOISTURE_HEALTHY_MAX
+    )
+    growth = clamp01(bonsai.growth + (config.BONSAI_GROWTH_PER_TICK if favorable else 0.0))
+    canopy_density = clamp01(
+        bonsai.canopy_density + (config.CANOPY_GROWTH_PER_TICK if health > 0.50 else 0.0)
+    )
+    ground_density = clamp01(
+        advanced.ground.density + config.GROUND_GROWTH_PER_TICK * (0.5 + humidity)
+    )
+    vine_extent = clamp01(advanced.vine.extent + config.VINE_GROWTH_PER_TICK * (0.5 + humidity))
 
     return replace(
         advanced,

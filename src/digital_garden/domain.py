@@ -83,15 +83,25 @@ def clamp01(value: float) -> float:
     return min(1.0, max(0.0, value))
 
 
+def _initial_environment(weather: Weather) -> tuple[float, float, float]:
+    if weather is Weather.SUNNY:
+        return config.SUNNY_ENV
+    if weather is Weather.CLOUDY:
+        return config.CLOUDY_ENV
+    return config.RAINY_ENV
+
+
 def make_initial_state(seed: int) -> GardenState:
+    weather = Weather(config.INITIAL_WEATHER)
+    light_level, humidity, _ = _initial_environment(weather)
     return GardenState(
         seed=seed,
         tick=0,
         day_index=0,
         hour_of_day=0,
-        weather=Weather.CLOUDY,
-        light_level=0.55,
-        humidity=0.55,
+        weather=weather,
+        light_level=light_level,
+        humidity=humidity,
         soil=SoilState(config.INITIAL_SOIL_MOISTURE),
         bonsai=BonsaiState(
             health=config.INITIAL_BONSAI_HEALTH,

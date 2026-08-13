@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from digital_garden import config
 from digital_garden.actions import apply_action
 from digital_garden.domain import ActionSource, GardenAction, GardenState
 from digital_garden.engine import advance_one_tick
@@ -62,7 +63,7 @@ class GardenService:
         append_event(
             self.ledger_path,
             LedgerEvent(
-                schema_version=1,
+                schema_version=config.SCHEMA_VERSION,
                 tick=post_state.tick,
                 source=source,
                 action=action,

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from digital_garden import config
 from digital_garden.domain import AnchorState, GardenCondition, GardenState, clamp01
 
 
@@ -12,9 +13,9 @@ class DerivedGardenState:
 
 
 def moisture_fitness(moisture: float) -> float:
-    if moisture < 0.40:
-        return moisture / 0.40
-    if moisture <= 0.70:
+    if moisture < config.MOISTURE_HEALTHY_MIN:
+        return moisture / config.MOISTURE_HEALTHY_MIN
+    if moisture <= config.MOISTURE_HEALTHY_MAX:
         return 1.0
     return (1.0 - moisture) / 0.30
 

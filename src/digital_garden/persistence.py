@@ -5,11 +5,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from digital_garden import config
 from digital_garden.domain import GardenState
 from digital_garden.engine import advance_ticks
 from digital_garden.observation import state_from_dict, state_to_dict
-
-SCHEMA_VERSION = 1
 
 
 @dataclass(frozen=True)
@@ -69,11 +68,11 @@ def advance_elapsed(persisted: PersistedGarden, now: datetime) -> tuple[Persiste
     if elapsed_seconds < 0:
         raise ValueError("now must not be before last_processed_time")
 
-    processed_ticks = int(elapsed_seconds // 3600)
+    processed_ticks = int(elapsed_seconds // config.SECONDS_PER_REAL_TICK)
     new_state = advance_ticks(persisted.state, processed_ticks)
-    new_last_processed = (last_processed_utc + timedelta(hours=processed_ticks)).astimezone(
-        persisted.last_processed_time.tzinfo
-    )
+    new_last_processed = (
+        last_processed_utc + timedelta(seconds=processed_ticks * config.SECONDS_PER_REAL_TICK)
+    ).astimezone(persisted.last_processed_time.tzinfo)
     return (
         PersistedGarden(persisted.schema_version, new_last_processed, new_state),
         processed_ticks,
@@ -86,5 +85,5 @@ def _require_timezone_aware(value: datetime) -> None:
 
 
 def _require_supported_schema_version(schema_version: int) -> None:
-    if schema_version != SCHEMA_VERSION:
+    if schema_version != config.SCHEMA_VERSION:
         raise ValueError("unsupported schema_version")

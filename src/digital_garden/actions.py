@@ -25,4 +25,4 @@ def apply_action(state: GardenState, action: GardenAction) -> GardenState:
 
 
 def _adjust(value: float, delta: float) -> float:
-    return round(clamp01(value + delta), 2)
+    return clamp01(value + delta)

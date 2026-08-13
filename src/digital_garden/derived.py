@@ -17,7 +17,7 @@ def moisture_fitness(moisture: float) -> float:
         return moisture / config.MOISTURE_HEALTHY_MIN
     if moisture <= config.MOISTURE_HEALTHY_MAX:
         return 1.0
-    return (1.0 - moisture) / 0.30
+    return (1.0 - moisture) / (1.0 - config.MOISTURE_HEALTHY_MAX)
 
 
 def derive_garden_state(state: GardenState) -> DerivedGardenState:

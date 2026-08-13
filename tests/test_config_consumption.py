@@ -58,6 +58,12 @@ def test_moisture_fitness_observes_configured_healthy_minimum(monkeypatch) -> No
     assert moisture_fitness(0.55) == pytest.approx(11 / 12)
 
 
+def test_moisture_fitness_observes_configured_healthy_maximum(monkeypatch) -> None:
+    monkeypatch.setattr(config, "MOISTURE_HEALTHY_MAX", 0.80)
+
+    assert moisture_fitness(0.800001) == pytest.approx(0.999995)
+
+
 def test_weather_environment_observes_configured_values(monkeypatch) -> None:
     monkeypatch.setattr(config, "CLOUDY_ENV", (0.22, 0.44, -0.06))
 

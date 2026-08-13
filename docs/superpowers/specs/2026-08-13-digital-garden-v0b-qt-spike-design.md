@@ -64,10 +64,12 @@ It contains only:
 2. one attached expanded garden surface;
 3. simple procedural placeholder artwork;
 4. expand/collapse behavior;
-5. minimal GardenService read binding;
+5. minimal GardenService binding;
 6. diagnostic output needed to judge DPI, monitor, focus, z-order, and input behavior.
 
 It does not contain the final bonsai artwork, animations, production persistence orchestration, startup-at-login behavior, settings UI, tray UI, installer, neural intelligence, LLMs, or V0-B polish.
+
+The spike has a hard scope cap: one Qt implementation path plus, only if needed for transparent-region hit testing, one small isolated Windows-native hit-test experiment. Do not add a second GUI framework or a general native-window abstraction inside this spike.
 
 ## 5. Visual shell
 
@@ -163,16 +165,14 @@ If only one monitor is available during the run, record multi-monitor movement a
 
 The prototype must import the existing Garden World package directly and create or receive a `GardenService` instance through the existing public Python boundary.
 
-At minimum, the expanded artifact displays:
+At minimum, the expanded artifact displays two labelled values from a real `GardenService.snapshot()` result:
 
 ```text
-anchor_state
-garden_condition
+anchor_state      <- snapshot["derived"]["anchor_state"]
+garden_condition  <- snapshot["derived"]["condition"]
 ```
 
-from a real `GardenService.snapshot()` result.
-
-The spike may expose one diagnostic action control to prove that a legitimate Garden action can travel through `GardenService`, but it must not build the production Water/Trim/Prune/Inspect control surface.
+The spike must expose exactly one diagnostic Garden action control: `WATER`. It must call `GardenService.apply(GardenAction.WATER)` and then refresh the displayed Garden World snapshot. This proves the action path without building the production Water/Trim/Prune/Inspect control surface.
 
 No Garden World state may be manually assigned by the UI.
 
@@ -205,7 +205,7 @@ NOT TESTED
 
 and include a short observation/evidence note.
 
-The report must not convert an untested desktop behavior into a pass based on code inspection alone.
+The report must not convert an untested desktop behavior into a pass based on code inspection alone. Forge may prepare the checklist and automated evidence, but the load-bearing visual/input gates are not `PASS` until Nolan exercises the runnable prototype on the target Windows desktop and supplies the observations.
 
 ## 13. Feasibility gates
 
@@ -254,7 +254,8 @@ PySide6 is approved for V0-B only if all load-bearing gates pass on Nolan's Wind
 ### Gate I — GardenService compatibility
 
 - the UI reads real `anchor_state` and `garden_condition` from `GardenService`;
-- a diagnostic legitimate action can pass through `GardenService` without direct world mutation.
+- the diagnostic `WATER` control passes through `GardenService.apply()` and the refreshed snapshot reflects the legitimate Garden World outcome;
+- no direct GardenState mutation occurs in the UI.
 
 ## 14. Decision rule
 
@@ -297,6 +298,7 @@ transparent attached garden surface
        |
        +-- placeholder bonsai
        +-- real Garden World condition
+       +-- one diagnostic WATER action
 ```
 
 The visual quality is intentionally primitive. The milestone is proving that the physical desktop interaction model works and that Qt is a sound foundation for the real V0-B artifact.

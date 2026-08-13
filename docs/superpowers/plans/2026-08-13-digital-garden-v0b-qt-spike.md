@@ -225,16 +225,28 @@ Create `windows.py` with `VineAnchorWindow(QWidget)` using:
 Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool | Qt.WindowDoesNotAcceptFocus
 ```
 
-and `WA_TranslucentBackground`. Use logical size `96 x 180`. Build a non-rectangular `QRegion` mask from a narrow stem plus ellipse/leaf regions, draw simple antialiased procedural vine shapes with `QPainter`, emit `clicked` on a click, and support dragging when movement exceeds a `DRAG_THRESHOLD = 6` pixel threshold. No Garden World logic belongs in this class.
+and `WA_TranslucentBackground`. Use logical size `96 x 180`. Draw simple antialiased procedural vine shapes with `QPainter`, emit `clicked` on a click, and support dragging when movement exceeds `DRAG_THRESHOLD = 6` pixels. No Garden World logic belongs in this class.
 
-Expose:
+Use this concrete mask helper as the starting implementation:
 
 ```python
+from PySide6.QtCore import QRect
+from PySide6.QtGui import QRegion
+
+
 def build_anchor_mask() -> QRegion:
-    ...
+    region = QRegion(43, 12, 10, 156)
+    for rect in (
+        QRect(20, 28, 42, 28),
+        QRect(39, 58, 42, 28),
+        QRect(14, 91, 42, 28),
+        QRect(38, 124, 42, 28),
+    ):
+        region = region.united(QRegion(rect, QRegion.RegionType.Ellipse))
+    return region
 ```
 
-where the implementation returns the union of the actual stem/leaf regions used by the window.
+Apply the returned region with `setMask(build_anchor_mask())`. Painting should remain within the same stem/leaf areas so the native hit region corresponds to the visible artifact.
 
 - [ ] **Step 10: Implement the application bootstrap**
 
@@ -297,7 +309,7 @@ git commit -m "feat: add PySide6 desktop artifact spike anchor"
 - Modify: `tests/test_ui_spike_windows.py`
 
 **Interfaces:**
-- Produces: `adjacent_patch_origin(...)`, `GardenPatchWindow`, `VineAnchorWindow.attach_patch()`, `expand_patch()`, `collapse_patch()`.
+- Produces: `adjacent_patch_origin(anchor_geometry: QRect, patch_size: QSize, available_geometry: QRect) -> QPoint`, `GardenPatchWindow`, `VineAnchorWindow.attach_patch()`, `expand_patch()`, `collapse_patch()`.
 
 - [ ] **Step 1: Write failing placement tests**
 
@@ -312,13 +324,13 @@ from digital_garden.ui_spike.geometry import adjacent_patch_origin
 def test_patch_prefers_left_when_space_exists() -> None:
     assert adjacent_patch_origin(
         QRect(1800, 700, 96, 180), QSize(520, 420), QRect(0, 0, 1920, 1080)
-    ) == QPoint(1272, 460)
+    ) == QPoint(1272, 579)
 
 
 def test_patch_flips_right_near_left_edge() -> None:
     assert adjacent_patch_origin(
         QRect(10, 500, 96, 180), QSize(520, 420), QRect(0, 0, 1920, 1080)
-    ) == QPoint(114, 380)
+    ) == QPoint(114, 379)
 ```
 
 - [ ] **Step 2: Verify placement tests fail**
@@ -327,9 +339,35 @@ def test_patch_flips_right_near_left_edge() -> None:
 uv run pytest tests/test_ui_spike_geometry.py -q
 ```
 
+Expected: import failure because `ui_spike.geometry` does not exist.
+
 - [ ] **Step 3: Implement placement**
 
-Create `geometry.py` with `PATCH_GAP = 8` and a deterministic `adjacent_patch_origin(anchor_geometry, patch_size, available_geometry)` that vertically centers/clamps the patch, prefers the left side, and flips right when left placement would leave the available screen geometry.
+Create `geometry.py`:
+
+```python
+from PySide6.QtCore import QPoint, QRect, QSize
+
+PATCH_GAP = 8
+
+
+def adjacent_patch_origin(
+    anchor_geometry: QRect,
+    patch_size: QSize,
+    available_geometry: QRect,
+) -> QPoint:
+    y = anchor_geometry.center().y() - patch_size.height() // 2
+    y = min(
+        max(y, available_geometry.top()),
+        available_geometry.bottom() - patch_size.height() + 1,
+    )
+    left_x = anchor_geometry.left() - PATCH_GAP - patch_size.width()
+    if left_x >= available_geometry.left():
+        return QPoint(left_x, y)
+    right_x = anchor_geometry.right() + 1 + PATCH_GAP
+    maximum_x = available_geometry.right() - patch_size.width() + 1
+    return QPoint(min(right_x, maximum_x), y)
+```
 
 - [ ] **Step 4: Verify placement tests pass**
 
@@ -447,6 +485,8 @@ def test_window_diagnostics_has_required_fields() -> None:
 uv run pytest tests/test_ui_spike_windows.py::test_window_diagnostics_has_required_fields -q
 ```
 
+Expected: FAIL because `window_diagnostics` does not exist.
+
 - [ ] **Step 3: Implement diagnostics**
 
 Implement `window_diagnostics()` to return screen name, device pixel ratio, logical DPI X/Y, and `(x, y, width, height)`. Print one concise JSON diagnostic line prefixed `DIGITAL_GARDEN_SPIKE_DISPLAY` when the anchor is first shown and when its screen changes.
@@ -455,9 +495,16 @@ Implement `window_diagnostics()` to return screen name, device pixel ratio, logi
 
 In `GardenPatchWindow.changeEvent`, on `QEvent.Type.WindowDeactivate`, emit `collapse_requested` when the patch is visible. Keep the explicit COLLAPSE control. Do not add application-wide input monitoring.
 
-- [ ] **Step 5: Prove masks are installed**
+- [ ] **Step 5: Prove masks are installed and non-rectangular**
 
-Extend the Qt tests to assert both anchor and patch have non-empty masks whose bounding rectangle matches the widget rectangle while the actual mask is non-rectangular/multi-region.
+Extend the Qt tests using `QRegion` so both anchor and patch satisfy:
+
+```python
+assert not window.mask().isEmpty()
+assert window.mask() != QRegion(window.rect())
+```
+
+This proves the installed native hit region is not simply the whole rectangle; real click-through behavior remains a manual Gate E observation.
 
 - [ ] **Step 6: Run all automated gates and preserved V0-A baseline**
 

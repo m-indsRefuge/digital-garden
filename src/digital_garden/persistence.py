@@ -2,7 +2,7 @@ import json
 import os
 import tempfile
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from digital_garden.domain import GardenState
@@ -20,6 +20,7 @@ class PersistedGarden:
 
 
 def save_garden(path: Path, persisted: PersistedGarden) -> None:
+    _require_supported_schema_version(persisted.schema_version)
     _require_timezone_aware(persisted.last_processed_time)
     payload = {
         "schema_version": persisted.schema_version,
@@ -48,8 +49,7 @@ def load_garden(path: Path) -> PersistedGarden:
     with path.open(encoding="utf-8") as source:
         payload = json.load(source)
 
-    if payload["schema_version"] != SCHEMA_VERSION:
-        raise ValueError("unsupported schema_version")
+    _require_supported_schema_version(payload["schema_version"])
 
     last_processed_time = datetime.fromisoformat(payload["last_processed_time"])
     _require_timezone_aware(last_processed_time)
@@ -63,13 +63,17 @@ def load_garden(path: Path) -> PersistedGarden:
 def advance_elapsed(persisted: PersistedGarden, now: datetime) -> tuple[PersistedGarden, int]:
     _require_timezone_aware(persisted.last_processed_time)
     _require_timezone_aware(now)
-    elapsed_seconds = (now - persisted.last_processed_time).total_seconds()
+    last_processed_utc = persisted.last_processed_time.astimezone(UTC)
+    now_utc = now.astimezone(UTC)
+    elapsed_seconds = (now_utc - last_processed_utc).total_seconds()
     if elapsed_seconds < 0:
         raise ValueError("now must not be before last_processed_time")
 
     processed_ticks = int(elapsed_seconds // 3600)
     new_state = advance_ticks(persisted.state, processed_ticks)
-    new_last_processed = persisted.last_processed_time + timedelta(hours=processed_ticks)
+    new_last_processed = (last_processed_utc + timedelta(hours=processed_ticks)).astimezone(
+        persisted.last_processed_time.tzinfo
+    )
     return (
         PersistedGarden(persisted.schema_version, new_last_processed, new_state),
         processed_ticks,
@@ -79,3 +83,8 @@ def advance_elapsed(persisted: PersistedGarden, now: datetime) -> tuple[Persiste
 def _require_timezone_aware(value: datetime) -> None:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("datetime must be timezone-aware")
+
+
+def _require_supported_schema_version(schema_version: int) -> None:
+    if schema_version != SCHEMA_VERSION:
+        raise ValueError("unsupported schema_version")

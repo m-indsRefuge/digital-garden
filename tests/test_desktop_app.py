@@ -2,9 +2,9 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from digital_garden.desktop.app import build_desktop_shell
 from PySide6.QtWidgets import QApplication
 
+from digital_garden.desktop.app import build_desktop_shell
 from digital_garden.desktop.persistence import (
     DesktopPreferences,
     DesktopPreferencesStore,

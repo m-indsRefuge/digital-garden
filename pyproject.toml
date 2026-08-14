@@ -30,6 +30,7 @@ testpaths = ["tests"]
 addopts = "--basetemp=.pytest_tmp"
 
 [tool.ruff]
+src = ["src"]
 target-version = "py312"
 line-length = 100
 

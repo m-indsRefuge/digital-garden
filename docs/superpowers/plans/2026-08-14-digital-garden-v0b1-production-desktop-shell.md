@@ -406,13 +406,9 @@ class DesktopPreferencesStore:
         anchor_y = payload.get("anchor_y")
         if screen_name is not None and not isinstance(screen_name, str):
             return DesktopPreferences()
-        if anchor_x is not None and (
-            isinstance(anchor_x, bool) or not isinstance(anchor_x, int)
-        ):
+        if anchor_x is not None and (isinstance(anchor_x, bool) or not isinstance(anchor_x, int)):
             return DesktopPreferences()
-        if anchor_y is not None and (
-            isinstance(anchor_y, bool) or not isinstance(anchor_y, int)
-        ):
+        if anchor_y is not None and (isinstance(anchor_y, bool) or not isinstance(anchor_y, int)):
             return DesktopPreferences()
         return DesktopPreferences(screen_name, anchor_x, anchor_y)
 
@@ -475,12 +471,10 @@ def test_restore_anchor_clamps_saved_position_to_available_geometry() -> None:
 def test_patch_prefers_left_and_flips_right_when_required() -> None:
     available = QRect(0, 0, 1920, 1080)
     patch_size = QSize(520, 420)
-    assert adjacent_patch_origin(
-        QRect(1800, 700, 96, 180), patch_size, available
-    ) == QPoint(1272, 580)
-    assert adjacent_patch_origin(
-        QRect(10, 500, 96, 180), patch_size, available
-    ) == QPoint(114, 380)
+    assert adjacent_patch_origin(QRect(1800, 700, 96, 180), patch_size, available) == QPoint(
+        1272, 580
+    )
+    assert adjacent_patch_origin(QRect(10, 500, 96, 180), patch_size, available) == QPoint(114, 380)
 ```
 
 - [ ] **Step 5: Verify placement tests fail**
@@ -1106,9 +1100,7 @@ def _screen_geometries() -> tuple[ScreenGeometry, ...]:
     ordered = ([primary] if primary is not None else []) + [
         screen for screen in screens if screen is not primary
     ]
-    return tuple(
-        ScreenGeometry(screen.name(), screen.availableGeometry()) for screen in ordered
-    )
+    return tuple(ScreenGeometry(screen.name(), screen.availableGeometry()) for screen in ordered)
 
 
 def build_desktop_shell(

@@ -1,0 +1,1 @@
+"""Desktop scene rendering components."""

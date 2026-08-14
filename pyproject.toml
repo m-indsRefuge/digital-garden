@@ -3,7 +3,9 @@ name = "digital-garden"
 version = "0.1.0"
 description = "A living desktop garden artifact and deterministic learning environment."
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+  "PySide6>=6.11,<7",
+]
 
 [dependency-groups]
 dev = [
@@ -13,6 +15,7 @@ dev = [
 
 [project.scripts]
 digital-garden = "digital_garden.cli:main"
+digital-garden-desktop = "digital_garden.desktop.app:main"
 
 [build-system]
 requires = ["hatchling"]

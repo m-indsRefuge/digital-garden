@@ -44,3 +44,13 @@ uv run digital-garden simulate --seed 7 --ticks 240
 
 The command prints a JSON summary, including the final tick, day index, and
 12-value observation length.
+
+## V0-B.1 production shell
+
+PySide6/Qt 6 is the approved Windows desktop technology. V0-B.1 provides the
+production desktop shell only; living garden rendering, Garden actions,
+persisted Garden resume, and ambient animation remain later V0-B slices.
+
+```powershell
+uv run digital-garden-desktop
+```

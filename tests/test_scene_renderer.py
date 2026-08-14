@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QApplication
 from digital_garden.desktop.controller import DesktopController
 from digital_garden.desktop.presentation import GardenRenderState
 from digital_garden.desktop.scene.bonsai import build_bonsai_scene
+from digital_garden.desktop.scene.ground import build_ground_scene, ground_mask_region
 from digital_garden.desktop.scene.renderer import QPainterShellRenderer
 from digital_garden.desktop.scene.style import scene_style
 from digital_garden.domain import make_initial_state
@@ -43,6 +44,15 @@ def test_patch_mask_contains_the_current_bonsai_scene_geometry() -> None:
     assert mask.contains(QPoint(round(scene.trunk.start.x), round(scene.trunk.start.y)))
     assert mask.contains(QPoint(round(scene.branches[-1].end.x), round(scene.branches[-1].end.y)))
     assert mask.contains(QPoint(round(scene.canopy[-1].center_x), round(scene.canopy[-1].center_y)))
+
+
+def test_patch_mask_contains_the_current_organic_ground_footprint() -> None:
+    state = _render_state()
+    ground = build_ground_scene(state, scene_style(state))
+
+    mask = QPainterShellRenderer().patch_mask(state)
+
+    assert ground_mask_region(ground).subtracted(mask).isEmpty()
 
 
 def test_patch_rendering_does_not_mutate_authoritative_service_state() -> None:

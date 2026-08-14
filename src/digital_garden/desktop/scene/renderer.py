@@ -13,13 +13,17 @@ from digital_garden.desktop.scene.bonsai import (
     build_bonsai_scene,
     paint_bonsai,
 )
+from digital_garden.desktop.scene.ground import (
+    build_ground_scene,
+    ground_mask_region,
+    paint_ground,
+)
 from digital_garden.desktop.scene.style import scene_style
 
 ANCHOR_SIZE = QSize(96, 180)
 PATCH_SIZE = QSize(520, 420)
 
 PATCH_LABEL_RECT = QRect(18, 16, 238, 86)
-PATCH_GROUND_RECT = QRect(24, 236, 472, 156)
 PATCH_COLLAPSE_RECT = QRect(414, 352, 82, 40)
 
 ANCHOR_LEAF_RECTS = (
@@ -56,14 +60,10 @@ class QPainterShellRenderer:
     def patch_mask(self, state: GardenRenderState) -> QRegion:
         style = scene_style(state)
         bonsai = build_bonsai_scene(state, style)
+        ground = build_ground_scene(state, style)
 
         region = _rounded_region(PATCH_LABEL_RECT, 12)
-        region = region.united(
-            QRegion(
-                PATCH_GROUND_RECT,
-                QRegion.RegionType.Ellipse,
-            )
-        )
+        region = region.united(ground_mask_region(ground))
 
         region = region.united(bonsai_mask_region(bonsai))
 
@@ -109,8 +109,7 @@ class QPainterShellRenderer:
         painter.setBrush(QColor(23, 52, 33, 220))
         painter.drawRoundedRect(PATCH_LABEL_RECT, 12, 12)
 
-        painter.setBrush(QColor("#416E43"))
-        painter.drawEllipse(PATCH_GROUND_RECT)
+        paint_ground(painter, build_ground_scene(state, style), style)
 
         paint_bonsai(painter, build_bonsai_scene(state, style), style)
 

@@ -5,7 +5,11 @@ from digital_garden.ui_spike.presentation import GardenSnapshotView, GardenSpike
 
 def test_controller_reads_real_derived_state() -> None:
     controller = GardenSpikeController(GardenService(make_initial_state(seed=7)))
-    assert controller.view() == GardenSnapshotView(anchor_state="CALM", condition="HEALTHY")
+    assert controller.view() == GardenSnapshotView(
+        anchor_state="CALM",
+        condition="HEALTHY",
+        soil_moisture=0.55,
+    )
 
 
 def test_water_routes_through_garden_service() -> None:

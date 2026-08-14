@@ -4,12 +4,17 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
 from PySide6.QtGui import QMouseEvent, QRegion
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QWidget
 
 from digital_garden.domain import GardenAction, make_initial_state
 from digital_garden.service import GardenService
 from digital_garden.ui_spike.presentation import GardenSpikeController
-from digital_garden.ui_spike.windows import GardenPatchWindow, VineAnchorWindow, window_diagnostics
+from digital_garden.ui_spike.windows import (
+    GardenPatchWindow,
+    VineAnchorWindow,
+    build_patch_mask,
+    window_diagnostics,
+)
 
 
 def test_anchor_declares_spike_window_contract() -> None:
@@ -79,19 +84,41 @@ def test_patch_declares_spike_window_contract_and_real_state() -> None:
     app.processEvents()
 
 
-def test_visible_patch_requests_collapse_on_window_deactivation() -> None:
+def test_patch_mask_leaves_known_empty_spaces_transparent() -> None:
+    mask = build_patch_mask()
+    assert not mask.contains(QPoint(100, 180))
+    assert not mask.contains(QPoint(270, 174))
+    assert not mask.contains(QPoint(19, 17))
+
+
+def test_patch_mask_contains_painted_branch_strokes() -> None:
+    mask = build_patch_mask()
+    assert mask.contains(QPoint(250, 200))
+    assert mask.contains(QPoint(220, 152))
+    assert mask.contains(QPoint(280, 131))
+
+
+def test_visible_patch_collapses_when_other_window_activates() -> None:
     app = QApplication.instance() or QApplication([])
     controller = GardenSpikeController(GardenService(make_initial_state(seed=7)))
+    anchor = VineAnchorWindow(controller)
     patch = GardenPatchWindow(controller)
+    anchor.attach_patch(patch)
     collapse_requests: list[bool] = []
     patch.collapse_requested.connect(lambda: collapse_requests.append(True))
     patch.show()
     app.processEvents()
-
-    patch.changeEvent(QEvent(QEvent.Type.WindowDeactivate))
+    assert patch.isActiveWindow()
+    other_window = QWidget()
+    other_window.show()
+    other_window.activateWindow()
+    app.processEvents()
 
     assert collapse_requests == [True]
+    assert not patch.isVisible()
+    anchor.close()
     patch.close()
+    other_window.close()
     app.processEvents()
 
 
@@ -104,6 +131,19 @@ def test_patch_diagnostic_water_routes_through_controller() -> None:
     patch.perform_diagnostic_water()
     assert service.state.soil.moisture > before
     assert controller.last_action is GardenAction.WATER
+    patch.close()
+    app.processEvents()
+
+
+def test_diagnostic_water_refreshes_soil_presentation_from_service_snapshot() -> None:
+    app = QApplication.instance() or QApplication([])
+    service = GardenService(make_initial_state(seed=7))
+    patch = GardenPatchWindow(GardenSpikeController(service))
+
+    assert patch.soil_moisture_text == "0.55"
+    patch.perform_diagnostic_water()
+    assert patch.soil_moisture_text == "0.80"
+
     patch.close()
     app.processEvents()
 

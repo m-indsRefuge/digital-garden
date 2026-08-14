@@ -1,4 +1,6 @@
-from PySide6.QtCore import QRect, Qt, Signal
+import json
+
+from PySide6.QtCore import QEvent, QRect, Qt, Signal
 from PySide6.QtGui import QColor, QGuiApplication, QMouseEvent, QPainter, QPen, QRegion
 from PySide6.QtWidgets import QPushButton, QWidget
 
@@ -6,6 +8,20 @@ from digital_garden.ui_spike.geometry import adjacent_patch_origin
 from digital_garden.ui_spike.presentation import GardenSpikeController
 
 DRAG_THRESHOLD = 6
+
+
+def window_diagnostics(widget: QWidget) -> dict[str, object]:
+    screen = widget.screen() or QGuiApplication.primaryScreen()
+    if screen is None:
+        raise RuntimeError("No Qt screen is available for window diagnostics")
+    geometry = widget.geometry()
+    return {
+        "screen_name": screen.name(),
+        "device_pixel_ratio": screen.devicePixelRatio(),
+        "logical_dpi_x": screen.logicalDotsPerInchX(),
+        "logical_dpi_y": screen.logicalDotsPerInchY(),
+        "geometry": (geometry.x(), geometry.y(), geometry.width(), geometry.height()),
+    }
 
 
 def build_anchor_mask() -> QRegion:
@@ -76,6 +92,11 @@ class GardenPatchWindow(QWidget):
         self._controller.water()
         self.refresh_view()
 
+    def changeEvent(self, event: QEvent) -> None:
+        super().changeEvent(event)
+        if event.type() is QEvent.Type.WindowDeactivate and self.isVisible():
+            self.collapse_requested.emit()
+
     def paintEvent(self, _event: object) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -117,9 +138,22 @@ class VineAnchorWindow(QWidget):
         self._window_origin = None
         self._is_dragging = False
         self._patch: GardenPatchWindow | None = None
+        self._screen_changes_connected = False
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFixedSize(96, 180)
         self.setMask(build_anchor_mask())
+
+    def showEvent(self, event: object) -> None:
+        super().showEvent(event)
+        if not self._screen_changes_connected and self.windowHandle() is not None:
+            self.windowHandle().screenChanged.connect(self._print_display_diagnostics)
+            self._screen_changes_connected = True
+        self._print_display_diagnostics()
+
+    def _print_display_diagnostics(self, _screen: object = None) -> None:
+        print(
+            f"DIGITAL_GARDEN_SPIKE_DISPLAY {json.dumps(window_diagnostics(self), sort_keys=True)}"
+        )
 
     def attach_patch(self, patch: GardenPatchWindow) -> None:
         self._patch = patch

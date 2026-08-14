@@ -3,13 +3,13 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtGui import QMouseEvent, QRegion
 from PySide6.QtWidgets import QApplication
 
 from digital_garden.domain import GardenAction, make_initial_state
 from digital_garden.service import GardenService
 from digital_garden.ui_spike.presentation import GardenSpikeController
-from digital_garden.ui_spike.windows import GardenPatchWindow, VineAnchorWindow
+from digital_garden.ui_spike.windows import GardenPatchWindow, VineAnchorWindow, window_diagnostics
 
 
 def test_anchor_declares_spike_window_contract() -> None:
@@ -23,7 +23,25 @@ def test_anchor_declares_spike_window_contract() -> None:
     assert flags & Qt.WindowType.WindowDoesNotAcceptFocus
     assert window.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
     assert not window.mask().isEmpty()
+    assert window.mask() != QRegion(window.rect())
     window.close()
+    app.processEvents()
+
+
+def test_window_diagnostics_has_required_fields() -> None:
+    app = QApplication.instance() or QApplication([])
+    controller = GardenSpikeController(GardenService(make_initial_state(seed=7)))
+    anchor = VineAnchorWindow(controller)
+    result = window_diagnostics(anchor)
+    assert set(result) == {
+        "screen_name",
+        "device_pixel_ratio",
+        "logical_dpi_x",
+        "logical_dpi_y",
+        "geometry",
+    }
+    assert len(result["geometry"]) == 4
+    anchor.close()
     app.processEvents()
 
 
@@ -36,8 +54,26 @@ def test_patch_declares_spike_window_contract_and_real_state() -> None:
     assert flags & Qt.WindowType.WindowStaysOnTopHint
     assert flags & Qt.WindowType.Tool
     assert patch.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+    assert not patch.mask().isEmpty()
+    assert patch.mask() != QRegion(patch.rect())
     assert patch.anchor_state_text == "CALM"
     assert patch.condition_text == "HEALTHY"
+    patch.close()
+    app.processEvents()
+
+
+def test_visible_patch_requests_collapse_on_window_deactivation() -> None:
+    app = QApplication.instance() or QApplication([])
+    controller = GardenSpikeController(GardenService(make_initial_state(seed=7)))
+    patch = GardenPatchWindow(controller)
+    collapse_requests: list[bool] = []
+    patch.collapse_requested.connect(lambda: collapse_requests.append(True))
+    patch.show()
+    app.processEvents()
+
+    patch.changeEvent(QEvent(QEvent.Type.WindowDeactivate))
+
+    assert collapse_requests == [True]
     patch.close()
     app.processEvents()
 

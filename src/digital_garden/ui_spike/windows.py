@@ -139,6 +139,7 @@ class VineAnchorWindow(QWidget):
         self._is_dragging = False
         self._patch: GardenPatchWindow | None = None
         self._screen_changes_connected = False
+        self._first_display_diagnostic_emitted = False
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFixedSize(96, 180)
         self.setMask(build_anchor_mask())
@@ -148,7 +149,9 @@ class VineAnchorWindow(QWidget):
         if not self._screen_changes_connected and self.windowHandle() is not None:
             self.windowHandle().screenChanged.connect(self._print_display_diagnostics)
             self._screen_changes_connected = True
-        self._print_display_diagnostics()
+        if not self._first_display_diagnostic_emitted:
+            self._print_display_diagnostics()
+            self._first_display_diagnostic_emitted = True
 
     def _print_display_diagnostics(self, _screen: object = None) -> None:
         print(

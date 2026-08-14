@@ -45,6 +45,23 @@ def test_window_diagnostics_has_required_fields() -> None:
     app.processEvents()
 
 
+def test_anchor_emits_display_diagnostic_only_on_first_show(capsys: object) -> None:
+    app = QApplication.instance() or QApplication([])
+    controller = GardenSpikeController(GardenService(make_initial_state(seed=7)))
+    anchor = VineAnchorWindow(controller)
+    anchor.show()
+    app.processEvents()
+    anchor.hide()
+    app.processEvents()
+    anchor.show()
+    app.processEvents()
+
+    output = capsys.readouterr().out
+    assert output.count("DIGITAL_GARDEN_SPIKE_DISPLAY") == 1
+    anchor.close()
+    app.processEvents()
+
+
 def test_patch_declares_spike_window_contract_and_real_state() -> None:
     app = QApplication.instance() or QApplication([])
     controller = GardenSpikeController(GardenService(make_initial_state(seed=7)))

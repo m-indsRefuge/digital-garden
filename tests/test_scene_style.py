@@ -83,3 +83,13 @@ def test_style_maps_authoritative_anchor_state_to_compact_vitality() -> None:
 
     assert thriving.anchor_vitality > dry.anchor_vitality
     assert thriving.anchor_leaf_color != dry.anchor_leaf_color
+
+
+def test_style_maps_cumulative_growth_to_bonsai_structural_maturity() -> None:
+    state = _render_state()
+
+    young = scene_style(replace(state, bonsai_growth=0.10))
+    mature = scene_style(replace(state, bonsai_growth=0.90))
+
+    assert mature.branch_reach > young.branch_reach
+    assert mature.root_flare > young.root_flare

@@ -36,7 +36,7 @@ class GardenPatchWindow(QWidget):
 
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFixedSize(PATCH_SIZE)
-        self.setMask(renderer.patch_mask())
+        self.setMask(renderer.patch_mask(self._render_state))
 
         self._collapse_button = QPushButton("COLLAPSE", self)
         self._collapse_button.setGeometry(PATCH_COLLAPSE_RECT)
@@ -44,6 +44,7 @@ class GardenPatchWindow(QWidget):
 
     def refresh_state(self) -> None:
         self._render_state = self._controller.render_state()
+        self.setMask(self._renderer.patch_mask(self._render_state))
         self.update()
 
     def changeEvent(self, event: QEvent) -> None:

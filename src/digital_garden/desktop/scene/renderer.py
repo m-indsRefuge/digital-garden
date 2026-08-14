@@ -3,12 +3,17 @@ from PySide6.QtGui import (
     QColor,
     QPainter,
     QPainterPath,
-    QPainterPathStroker,
     QPen,
     QRegion,
 )
 
 from digital_garden.desktop.presentation import GardenRenderState
+from digital_garden.desktop.scene.bonsai import (
+    bonsai_mask_region,
+    build_bonsai_scene,
+    paint_bonsai,
+)
+from digital_garden.desktop.scene.style import scene_style
 
 ANCHOR_SIZE = QSize(96, 180)
 PATCH_SIZE = QSize(520, 420)
@@ -16,19 +21,6 @@ PATCH_SIZE = QSize(520, 420)
 PATCH_LABEL_RECT = QRect(18, 16, 238, 86)
 PATCH_GROUND_RECT = QRect(24, 236, 472, 156)
 PATCH_COLLAPSE_RECT = QRect(414, 352, 82, 40)
-
-PATCH_BRANCH_WIDTH = 18
-PATCH_BRANCH_LINES = (
-    (250, 256, 250, 125),
-    (250, 176, 190, 128),
-    (250, 156, 310, 106),
-)
-
-PATCH_CANOPY_RECTS = (
-    QRect(158, 78, 100, 86),
-    QRect(220, 48, 112, 96),
-    QRect(286, 74, 92, 82),
-)
 
 ANCHOR_LEAF_RECTS = (
     QRect(20, 28, 42, 28),
@@ -52,23 +44,6 @@ def _rounded_region(rect: QRect, radius: int) -> QRegion:
     return QRegion(path.toFillPolygon().toPolygon())
 
 
-def _stroked_line_region(
-    x1: int,
-    y1: int,
-    x2: int,
-    y2: int,
-) -> QRegion:
-    path = QPainterPath()
-    path.moveTo(x1, y1)
-    path.lineTo(x2, y2)
-
-    stroker = QPainterPathStroker()
-    stroker.setWidth(PATCH_BRANCH_WIDTH)
-    stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
-
-    return QRegion(stroker.createStroke(path).toFillPolygon().toPolygon())
-
-
 class QPainterShellRenderer:
     def anchor_mask(self) -> QRegion:
         region = QRegion(43, 12, 10, 156)
@@ -78,7 +53,10 @@ class QPainterShellRenderer:
 
         return region
 
-    def patch_mask(self) -> QRegion:
+    def patch_mask(self, state: GardenRenderState) -> QRegion:
+        style = scene_style(state)
+        bonsai = build_bonsai_scene(state, style)
+
         region = _rounded_region(PATCH_LABEL_RECT, 12)
         region = region.united(
             QRegion(
@@ -87,11 +65,7 @@ class QPainterShellRenderer:
             )
         )
 
-        for line in PATCH_BRANCH_LINES:
-            region = region.united(_stroked_line_region(*line))
-
-        for rect in PATCH_CANOPY_RECTS:
-            region = region.united(QRegion(rect, QRegion.RegionType.Ellipse))
+        region = region.united(bonsai_mask_region(bonsai))
 
         return region.united(QRegion(PATCH_COLLAPSE_RECT))
 
@@ -129,6 +103,7 @@ class QPainterShellRenderer:
         state: GardenRenderState,
     ) -> None:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        style = scene_style(state)
 
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(23, 52, 33, 220))
@@ -137,23 +112,7 @@ class QPainterShellRenderer:
         painter.setBrush(QColor("#416E43"))
         painter.drawEllipse(PATCH_GROUND_RECT)
 
-        painter.setPen(
-            QPen(
-                QColor("#7A5537"),
-                PATCH_BRANCH_WIDTH,
-                Qt.PenStyle.SolidLine,
-                Qt.PenCapStyle.RoundCap,
-            )
-        )
-
-        for x1, y1, x2, y2 in PATCH_BRANCH_LINES:
-            painter.drawLine(x1, y1, x2, y2)
-
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor("#6FA65D"))
-
-        for rect in PATCH_CANOPY_RECTS:
-            painter.drawEllipse(rect)
+        paint_bonsai(painter, build_bonsai_scene(state, style), style)
 
         painter.setPen(QColor("#E7F2DB"))
         painter.drawText(

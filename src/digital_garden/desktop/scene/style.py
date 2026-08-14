@@ -82,13 +82,16 @@ class SceneStyle:
     anchor_vitality: float
     ambient_brightness: float
     atmosphere_coolness: float
+    branch_reach: float
     canopy_droop: float
+    canopy_spread: float
     exposed_branch_visibility: float
     foliage_vitality: float
     foliage_saturation: float
     ground_lushness: float
     highlight_warmth: float
     palette: ScenePalette
+    root_flare: float
     soil_lightness: float
     wet_highlight_opacity: float
 
@@ -98,6 +101,7 @@ def _clamp_unit(value: float) -> float:
 
 
 def scene_style(state: GardenRenderState) -> SceneStyle:
+    growth = _clamp_unit(state.bonsai_growth)
     health = _clamp_unit(state.bonsai_health)
     light_level = _clamp_unit(state.light_level)
     moisture = _clamp_unit(state.soil_moisture)
@@ -125,7 +129,7 @@ def scene_style(state: GardenRenderState) -> SceneStyle:
         overlay_backing=Color(20, 43, 32, 138),
         overlay_text=Color(232, 240, 214),
         soil=soil,
-        trunk=_mix_color(Color(112, 76, 49), Color(84, 61, 43), state.bonsai_growth),
+        trunk=_mix_color(Color(112, 76, 49), Color(84, 61, 43), growth),
         vine=_mix_color(moss, _color_from_hex(anchor_leaf_color), 0.30),
         wet_highlight=Color(195, 215, 204, round(90 * moisture)),
     )
@@ -135,13 +139,16 @@ def scene_style(state: GardenRenderState) -> SceneStyle:
         anchor_vitality=anchor_vitality,
         ambient_brightness=weather_style.brightness * 0.72 + light_level * 0.28,
         atmosphere_coolness=_clamp_unit(weather_style.coolness + humidity * 0.08),
+        branch_reach=0.76 + growth * 0.30,
         canopy_droop=stress * 0.16,
+        canopy_spread=0.84 + growth * 0.26,
         exposed_branch_visibility=0.20 + stress * 0.42,
         foliage_vitality=0.35 + health * 0.65,
         foliage_saturation=0.28 + health * 0.42,
         ground_lushness=0.30 + moisture * 0.55,
         highlight_warmth=weather_style.warmth,
         palette=palette,
+        root_flare=0.72 + growth * 0.34,
         soil_lightness=0.62 - moisture * 0.24,
         wet_highlight_opacity=moisture * 0.35,
     )

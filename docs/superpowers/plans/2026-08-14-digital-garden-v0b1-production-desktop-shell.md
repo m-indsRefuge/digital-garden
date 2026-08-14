@@ -92,18 +92,16 @@ digital-garden = "digital_garden.cli:main"
 digital-garden-desktop = "digital_garden.desktop.app:main"
 ```
 
-Do not remove or weaken the existing development dependencies or quality configuration.
+Keep all existing build, test, Ruff, and development-dependency configuration.
 
 - [ ] **Step 2: Synchronize dependencies and prove the approved Qt major version**
-
-Run:
 
 ```powershell
 uv sync
 uv run python -c "import PySide6; print(PySide6.__version__)"
 ```
 
-Expected: a PySide6 `6.x` version satisfying `>=6.11,<7` prints and `uv.lock` changes only as required by the dependency addition.
+Expected: a PySide6 6.x version satisfying `>=6.11,<7` prints and `uv.lock` changes only as required by the dependency addition.
 
 - [ ] **Step 3: Write the failing presentation tests**
 
@@ -116,7 +114,14 @@ import pytest
 
 from digital_garden.desktop.controller import DesktopController
 from digital_garden.desktop.presentation import GardenRenderState, render_state_from_snapshot
-from digital_garden.domain import BonsaiState, GroundState, SoilState, VineState, Weather, make_initial_state
+from digital_garden.domain import (
+    BonsaiState,
+    GroundState,
+    SoilState,
+    VineState,
+    Weather,
+    make_initial_state,
+)
 from digital_garden.observation import inspection_snapshot
 from digital_garden.service import GardenService
 
@@ -167,8 +172,6 @@ def test_presentation_rejects_malformed_snapshot() -> None:
 
 - [ ] **Step 4: Verify the presentation tests fail**
 
-Run:
-
 ```powershell
 uv run pytest tests/test_desktop_presentation.py -q
 ```
@@ -177,13 +180,13 @@ Expected: FAIL because the production desktop package does not exist.
 
 - [ ] **Step 5: Implement the immutable presentation contract**
 
-Create `src/digital_garden/desktop/__init__.py` containing:
+Create `src/digital_garden/desktop/__init__.py`:
 
 ```python
 """Production Windows desktop artifact for Digital Garden."""
 ```
 
-Create `src/digital_garden/desktop/presentation.py` with this contract:
+Create `src/digital_garden/desktop/presentation.py`:
 
 ```python
 from collections.abc import Mapping
@@ -226,6 +229,12 @@ def _integer(value: object, name: str) -> int:
     return value
 
 
+def _string(value: object, name: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a string")
+    return value
+
+
 def render_state_from_snapshot(snapshot: dict[str, object]) -> GardenRenderState:
     state = _mapping(snapshot.get("state"), "snapshot state")
     derived = _mapping(snapshot.get("derived"), "snapshot derived")
@@ -237,7 +246,7 @@ def render_state_from_snapshot(snapshot: dict[str, object]) -> GardenRenderState
     return GardenRenderState(
         seed=_integer(state.get("seed"), "seed"),
         tick=_integer(state.get("tick"), "tick"),
-        weather=str(state.get("weather")),
+        weather=_string(state.get("weather"), "weather"),
         light_level=_number(state.get("light_level"), "light_level"),
         humidity=_number(state.get("humidity"), "humidity"),
         soil_moisture=_number(soil.get("moisture"), "soil moisture"),
@@ -247,8 +256,8 @@ def render_state_from_snapshot(snapshot: dict[str, object]) -> GardenRenderState
         canopy_density=_number(bonsai.get("canopy_density"), "canopy density"),
         ground_density=_number(ground.get("density"), "ground density"),
         vine_extent=_number(vine.get("extent"), "vine extent"),
-        condition=str(derived.get("condition")),
-        anchor_state=str(derived.get("anchor_state")),
+        condition=_string(derived.get("condition"), "condition"),
+        anchor_state=_string(derived.get("anchor_state"), "anchor state"),
     )
 ```
 
@@ -272,8 +281,6 @@ class DesktopController:
 No mutating Garden methods belong in this controller during V0-B.1.
 
 - [ ] **Step 7: Run Task 1 verification**
-
-Run:
 
 ```powershell
 uv run pytest tests/test_desktop_presentation.py -q
@@ -302,7 +309,7 @@ git commit -m "feat: add production desktop presentation boundary"
 - Create: `tests/test_desktop_placement.py`
 
 **Interfaces:**
-- Produces: `DesktopPreferences`, `DesktopPreferencesStore`, `default_preferences_path()`, `ScreenGeometry`, `choose_screen()`, `default_anchor_origin()`, `clamp_anchor_origin()`, and `adjacent_patch_origin()`.
+- Produces: `DesktopPreferences`, `DesktopPreferencesStore`, `default_preferences_path()`, `ScreenGeometry`, `choose_screen()`, `default_anchor_origin()`, `clamp_anchor_origin()`, `restore_anchor_origin()`, and `adjacent_patch_origin()`.
 - Desktop preferences must not import `GardenState`, `GardenService`, `digital_garden.persistence`, or Garden config constants.
 
 - [ ] **Step 1: Write failing desktop-preferences tests**
@@ -333,12 +340,15 @@ def test_desktop_preferences_round_trip(tmp_path) -> None:
     assert "soil" not in payload
 
 
-def test_missing_or_invalid_desktop_preferences_fall_back_safely(tmp_path) -> None:
+def test_missing_invalid_or_non_object_preferences_fall_back_safely(tmp_path) -> None:
     path = tmp_path / "desktop.json"
     store = DesktopPreferencesStore(path)
     assert store.load() == DesktopPreferences()
 
     path.write_text("not-json", encoding="utf-8")
+    assert store.load() == DesktopPreferences()
+
+    path.write_text("[]", encoding="utf-8")
     assert store.load() == DesktopPreferences()
 ```
 
@@ -350,7 +360,7 @@ uv run pytest tests/test_desktop_persistence.py -q
 
 - [ ] **Step 3: Implement desktop-only preferences**
 
-Create `src/digital_garden/desktop/persistence.py` with exactly one schema and no Garden imports:
+Create `src/digital_garden/desktop/persistence.py`:
 
 ```python
 import json
@@ -383,20 +393,28 @@ class DesktopPreferencesStore:
     def load(self) -> DesktopPreferences:
         try:
             payload = json.loads(self.path.read_text(encoding="utf-8"))
-            if payload.get("schema_version") != DESKTOP_PREFERENCES_SCHEMA_VERSION:
-                return DesktopPreferences()
-            screen_name = payload.get("screen_name")
-            anchor_x = payload.get("anchor_x")
-            anchor_y = payload.get("anchor_y")
-            if screen_name is not None and not isinstance(screen_name, str):
-                return DesktopPreferences()
-            if anchor_x is not None and not isinstance(anchor_x, int):
-                return DesktopPreferences()
-            if anchor_y is not None and not isinstance(anchor_y, int):
-                return DesktopPreferences()
-            return DesktopPreferences(screen_name, anchor_x, anchor_y)
-        except (FileNotFoundError, json.JSONDecodeError, OSError, TypeError):
+        except (FileNotFoundError, json.JSONDecodeError, OSError, UnicodeError):
             return DesktopPreferences()
+
+        if not isinstance(payload, dict):
+            return DesktopPreferences()
+        if payload.get("schema_version") != DESKTOP_PREFERENCES_SCHEMA_VERSION:
+            return DesktopPreferences()
+
+        screen_name = payload.get("screen_name")
+        anchor_x = payload.get("anchor_x")
+        anchor_y = payload.get("anchor_y")
+        if screen_name is not None and not isinstance(screen_name, str):
+            return DesktopPreferences()
+        if anchor_x is not None and (
+            isinstance(anchor_x, bool) or not isinstance(anchor_x, int)
+        ):
+            return DesktopPreferences()
+        if anchor_y is not None and (
+            isinstance(anchor_y, bool) or not isinstance(anchor_y, int)
+        ):
+            return DesktopPreferences()
+        return DesktopPreferences(screen_name, anchor_x, anchor_y)
 
     def save(self, preferences: DesktopPreferences) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -457,12 +475,12 @@ def test_restore_anchor_clamps_saved_position_to_available_geometry() -> None:
 def test_patch_prefers_left_and_flips_right_when_required() -> None:
     available = QRect(0, 0, 1920, 1080)
     patch_size = QSize(520, 420)
-    assert adjacent_patch_origin(QRect(1800, 700, 96, 180), patch_size, available) == QPoint(
-        1272, 580
-    )
-    assert adjacent_patch_origin(QRect(10, 500, 96, 180), patch_size, available) == QPoint(
-        114, 380
-    )
+    assert adjacent_patch_origin(
+        QRect(1800, 700, 96, 180), patch_size, available
+    ) == QPoint(1272, 580)
+    assert adjacent_patch_origin(
+        QRect(10, 500, 96, 180), patch_size, available
+    ) == QPoint(114, 380)
 ```
 
 - [ ] **Step 5: Verify placement tests fail**
@@ -492,7 +510,9 @@ class ScreenGeometry:
     available: QRect
 
 
-def choose_screen(screens: tuple[ScreenGeometry, ...], preferred_name: str | None) -> ScreenGeometry:
+def choose_screen(
+    screens: tuple[ScreenGeometry, ...], preferred_name: str | None
+) -> ScreenGeometry:
     if not screens:
         raise RuntimeError("no desktop screens are available")
     if preferred_name is not None:
@@ -503,8 +523,8 @@ def choose_screen(screens: tuple[ScreenGeometry, ...], preferred_name: str | Non
 
 
 def clamp_anchor_origin(origin: QPoint, anchor_size: QSize, available: QRect) -> QPoint:
-    max_x = available.x() + available.width() - anchor_size.width()
-    max_y = available.y() + available.height() - anchor_size.height()
+    max_x = max(available.x(), available.x() + available.width() - anchor_size.width())
+    max_y = max(available.y(), available.y() + available.height() - anchor_size.height())
     return QPoint(
         min(max(origin.x(), available.x()), max_x),
         min(max(origin.y(), available.y()), max_y),
@@ -540,7 +560,7 @@ def adjacent_patch_origin(
     available: QRect,
 ) -> QPoint:
     centered_y = anchor_geometry.y() + (anchor_geometry.height() - patch_size.height()) // 2
-    max_y = available.y() + available.height() - patch_size.height()
+    max_y = max(available.y(), available.y() + available.height() - patch_size.height())
     y = min(max(centered_y, available.y()), max_y)
 
     left_x = anchor_geometry.x() - PATCH_GAP - patch_size.width()
@@ -549,7 +569,7 @@ def adjacent_patch_origin(
     else:
         x = anchor_geometry.x() + anchor_geometry.width() + PATCH_GAP
 
-    max_x = available.x() + available.width() - patch_size.width()
+    max_x = max(available.x(), available.x() + available.width() - patch_size.width())
     return QPoint(min(max(x, available.x()), max_x), y)
 ```
 
@@ -561,6 +581,8 @@ uv run ruff check src/digital_garden/desktop tests/test_desktop_persistence.py t
 uv run ruff format --check src/digital_garden/desktop tests/test_desktop_persistence.py tests/test_desktop_placement.py
 git diff --check
 ```
+
+Expected: all pass.
 
 - [ ] **Step 8: Commit Task 2**
 
@@ -580,14 +602,13 @@ git commit -m "feat: add desktop placement persistence boundary"
 - Create: `tests/test_desktop_windows.py`
 
 **Interfaces:**
-- Consumes: `GardenRenderState`, placement functions.
+- Consumes: `GardenRenderState`, `DesktopController`, `adjacent_patch_origin()`.
 - Produces: `QPainterShellRenderer`, `VineAnchorWindow`, `GardenPatchWindow`.
-- The windows may ask `DesktopController` for a render state, but must never parse snapshots or mutate Garden state.
-- This task graduates only proven spike mechanics; it does not copy the spike package wholesale.
+- Windows may request immutable render state from `DesktopController`; they must never parse Garden snapshots or mutate Garden state.
 
-- [ ] **Step 1: Write failing Qt contract tests**
+- [ ] **Step 1: Write the failing Qt window tests**
 
-Create `tests/test_desktop_windows.py` beginning with:
+Create `tests/test_desktop_windows.py`:
 
 ```python
 import os
@@ -634,9 +655,32 @@ def test_anchor_and_patch_keep_the_proven_window_contract() -> None:
     anchor.close()
     patch.close()
     app.processEvents()
-```
 
-Add a second test that attaches the patch, shows both through `anchor.expand_patch()`, activates a separate plain `QWidget`, processes events, and asserts the patch becomes hidden after its real `ActivationChange` transition. Do not call `collapse_patch()` directly in that regression.
+
+def test_activation_change_collapses_attached_patch() -> None:
+    app = QApplication.instance() or QApplication([])
+    renderer = QPainterShellRenderer()
+    controller = _controller()
+    anchor = VineAnchorWindow(controller, renderer)
+    patch = GardenPatchWindow(controller, renderer)
+    other = QWidget()
+    anchor.attach_patch(patch)
+
+    anchor.show()
+    anchor.expand_patch()
+    app.processEvents()
+    assert patch.isVisible()
+
+    other.show()
+    other.activateWindow()
+    app.processEvents()
+
+    assert not patch.isVisible()
+    other.close()
+    anchor.close()
+    patch.close()
+    app.processEvents()
+```
 
 - [ ] **Step 2: Verify the Qt tests fail**
 
@@ -654,33 +698,43 @@ Create `src/digital_garden/desktop/scene/__init__.py`:
 """Desktop scene rendering components."""
 ```
 
-Create `renderer.py` with fixed shell dimensions and the proven organic-region strategy. Use:
+Create `src/digital_garden/desktop/scene/renderer.py`:
 
 ```python
+from PySide6.QtCore import QRect, QSize, Qt
+from PySide6.QtGui import (
+    QColor,
+    QPainter,
+    QPainterPath,
+    QPainterPathStroker,
+    QPen,
+    QRegion,
+)
+
+from digital_garden.desktop.presentation import GardenRenderState
+
 ANCHOR_SIZE = QSize(96, 180)
 PATCH_SIZE = QSize(520, 420)
 PATCH_LABEL_RECT = QRect(18, 16, 238, 86)
 PATCH_GROUND_RECT = QRect(24, 236, 472, 156)
 PATCH_COLLAPSE_RECT = QRect(414, 352, 82, 40)
-```
-
-`QPainterShellRenderer` must expose exactly:
-
-```python
-class QPainterShellRenderer:
-    def anchor_mask(self) -> QRegion: ...
-    def patch_mask(self) -> QRegion: ...
-    def paint_anchor(self, painter: QPainter, state: GardenRenderState) -> None: ...
-    def paint_patch(self, painter: QPainter, state: GardenRenderState) -> None: ...
-```
-
-Implementation requirements:
-
-- `anchor_mask()` uses the proven narrow stem plus four elliptical leaf regions from the spike rather than a rectangular mask.
-- `patch_mask()` unions only the small state plaque, placeholder bonsai trunk/canopy, ground ellipse, and collapse-control rectangle. It must not include a full-window rectangle.
-- `paint_anchor()` uses antialiasing and a simple state tint selected from this exact mapping:
-
-```python
+PATCH_BRANCH_WIDTH = 18
+PATCH_BRANCH_LINES = (
+    (250, 256, 250, 125),
+    (250, 176, 190, 128),
+    (250, 156, 310, 106),
+)
+PATCH_CANOPY_RECTS = (
+    QRect(158, 78, 100, 86),
+    QRect(220, 48, 112, 96),
+    QRect(286, 74, 92, 82),
+)
+ANCHOR_LEAF_RECTS = (
+    QRect(20, 28, 42, 28),
+    QRect(39, 58, 42, 28),
+    QRect(14, 91, 42, 28),
+    QRect(38, 124, 42, 28),
+)
 ANCHOR_COLORS = {
     "CALM": QColor("#5E9B68"),
     "DRY": QColor("#9A8052"),
@@ -688,57 +742,235 @@ ANCHOR_COLORS = {
     "THRIVING": QColor("#78B86A"),
     "STRESSED": QColor("#7A6956"),
 }
+
+
+def _rounded_region(rect: QRect, radius: int) -> QRegion:
+    path = QPainterPath()
+    path.addRoundedRect(rect, radius, radius)
+    return QRegion(path.toFillPolygon().toPolygon())
+
+
+def _stroked_line_region(x1: int, y1: int, x2: int, y2: int) -> QRegion:
+    path = QPainterPath()
+    path.moveTo(x1, y1)
+    path.lineTo(x2, y2)
+    stroker = QPainterPathStroker()
+    stroker.setWidth(PATCH_BRANCH_WIDTH)
+    stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
+    return QRegion(stroker.createStroke(path).toFillPolygon().toPolygon())
+
+
+class QPainterShellRenderer:
+    def anchor_mask(self) -> QRegion:
+        region = QRegion(43, 12, 10, 156)
+        for rect in ANCHOR_LEAF_RECTS:
+            region = region.united(QRegion(rect, QRegion.RegionType.Ellipse))
+        return region
+
+    def patch_mask(self) -> QRegion:
+        region = _rounded_region(PATCH_LABEL_RECT, 12)
+        region = region.united(QRegion(PATCH_GROUND_RECT, QRegion.RegionType.Ellipse))
+        for line in PATCH_BRANCH_LINES:
+            region = region.united(_stroked_line_region(*line))
+        for rect in PATCH_CANOPY_RECTS:
+            region = region.united(QRegion(rect, QRegion.RegionType.Ellipse))
+        return region.united(QRegion(PATCH_COLLAPSE_RECT))
+
+    def paint_anchor(self, painter: QPainter, state: GardenRenderState) -> None:
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(
+            QPen(
+                QColor("#31533B"),
+                7,
+                Qt.PenStyle.SolidLine,
+                Qt.PenCapStyle.RoundCap,
+            )
+        )
+        painter.drawLine(48, 15, 48, 165)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(ANCHOR_COLORS.get(state.anchor_state, ANCHOR_COLORS["CALM"]))
+        for rect in ANCHOR_LEAF_RECTS:
+            painter.drawEllipse(rect)
+
+    def paint_patch(self, painter: QPainter, state: GardenRenderState) -> None:
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(23, 52, 33, 220))
+        painter.drawRoundedRect(PATCH_LABEL_RECT, 12, 12)
+        painter.setBrush(QColor("#416E43"))
+        painter.drawEllipse(PATCH_GROUND_RECT)
+        painter.setPen(
+            QPen(
+                QColor("#7A5537"),
+                PATCH_BRANCH_WIDTH,
+                Qt.PenStyle.SolidLine,
+                Qt.PenCapStyle.RoundCap,
+            )
+        )
+        for x1, y1, x2, y2 in PATCH_BRANCH_LINES:
+            painter.drawLine(x1, y1, x2, y2)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor("#6FA65D"))
+        for rect in PATCH_CANOPY_RECTS:
+            painter.drawEllipse(rect)
+        painter.setPen(QColor("#E7F2DB"))
+        painter.drawText(30, 48, f"CONDITION: {state.condition}")
+        painter.drawText(30, 72, f"WEATHER: {state.weather}")
 ```
 
-- `paint_patch()` deliberately remains a structural placeholder: draw a small translucent state plaque, one ground ellipse, a simple trunk/three-canopy silhouette, and text for `CONDITION` and `WEATHER`. Do not draw a full panel and do not begin V0-B.2 artwork.
-- The renderer reads only `GardenRenderState` and has no `GardenService` import.
+This renderer is intentionally structural. Do not add V0-B.2 living-art systems here.
 
-- [ ] **Step 4: Implement the production windows using the renderer**
+- [ ] **Step 4: Implement the production windows**
 
-Create `src/digital_garden/desktop/windows.py` with these production contracts:
+Create `src/digital_garden/desktop/windows.py`:
 
 ```python
+from PySide6.QtCore import QEvent, Qt, Signal
+from PySide6.QtGui import QGuiApplication, QMouseEvent, QPainter
+from PySide6.QtWidgets import QPushButton, QWidget
+
+from digital_garden.desktop.controller import DesktopController
+from digital_garden.desktop.placement import adjacent_patch_origin
+from digital_garden.desktop.scene.renderer import (
+    ANCHOR_SIZE,
+    PATCH_COLLAPSE_RECT,
+    PATCH_SIZE,
+    QPainterShellRenderer,
+)
+
 DRAG_THRESHOLD = 6
+
 
 class GardenPatchWindow(QWidget):
     collapse_requested = Signal()
 
+    def __init__(
+        self,
+        controller: DesktopController,
+        renderer: QPainterShellRenderer,
+    ) -> None:
+        flags = (
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool
+        )
+        super().__init__(None, flags)
+        self._controller = controller
+        self._renderer = renderer
+        self._render_state = controller.render_state()
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setFixedSize(PATCH_SIZE)
+        self.setMask(renderer.patch_mask())
+
+        self._collapse_button = QPushButton("COLLAPSE", self)
+        self._collapse_button.setGeometry(PATCH_COLLAPSE_RECT)
+        self._collapse_button.clicked.connect(self.collapse_requested.emit)
+
+    def refresh_state(self) -> None:
+        self._render_state = self._controller.render_state()
+        self.update()
+
+    def changeEvent(self, event: QEvent) -> None:
+        super().changeEvent(event)
+        if (
+            event.type() is QEvent.Type.ActivationChange
+            and self.isVisible()
+            and not self.isActiveWindow()
+        ):
+            self.collapse_requested.emit()
+
+    def paintEvent(self, _event: object) -> None:
+        painter = QPainter(self)
+        self._renderer.paint_patch(painter, self._render_state)
+
+
 class VineAnchorWindow(QWidget):
     clicked = Signal()
     position_committed = Signal(str, int, int)
+
+    def __init__(
+        self,
+        controller: DesktopController,
+        renderer: QPainterShellRenderer,
+    ) -> None:
+        flags = (
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool
+            | Qt.WindowType.WindowDoesNotAcceptFocus
+        )
+        super().__init__(None, flags)
+        self._controller = controller
+        self._renderer = renderer
+        self._patch: GardenPatchWindow | None = None
+        self._drag_origin = None
+        self._window_origin = None
+        self._is_dragging = False
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setFixedSize(ANCHOR_SIZE)
+        self.setMask(renderer.anchor_mask())
+        self.clicked.connect(self.expand_patch)
+
+    def attach_patch(self, patch: GardenPatchWindow) -> None:
+        self._patch = patch
+        patch.collapse_requested.connect(self.collapse_patch)
+
+    def expand_patch(self) -> None:
+        if self._patch is None:
+            return
+        screen = self.screen() or QGuiApplication.primaryScreen()
+        if screen is None:
+            return
+        self._patch.refresh_state()
+        self._patch.move(
+            adjacent_patch_origin(
+                self.frameGeometry(),
+                self._patch.size(),
+                screen.availableGeometry(),
+            )
+        )
+        self._patch.show()
+        self._patch.raise_()
+        self._patch.activateWindow()
+
+    def collapse_patch(self) -> None:
+        if self._patch is not None:
+            self._patch.hide()
+
+    def paintEvent(self, _event: object) -> None:
+        painter = QPainter(self)
+        self._renderer.paint_anchor(painter, self._controller.render_state())
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() is Qt.MouseButton.LeftButton:
+            self._drag_origin = event.globalPosition()
+            self._window_origin = self.pos()
+            self._is_dragging = False
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if self._drag_origin is not None and self._window_origin is not None:
+            offset = event.globalPosition() - self._drag_origin
+            if offset.manhattanLength() > DRAG_THRESHOLD:
+                self._is_dragging = True
+                self.move(self._window_origin + offset.toPoint())
+                if self._patch is not None and self._patch.isVisible():
+                    self.expand_patch()
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if event.button() is Qt.MouseButton.LeftButton:
+            if self._is_dragging:
+                screen = self.screen() or QGuiApplication.primaryScreen()
+                screen_name = "" if screen is None else screen.name()
+                self.position_committed.emit(screen_name, self.x(), self.y())
+            else:
+                self.clicked.emit()
+        self._drag_origin = None
+        self._window_origin = None
+        self._is_dragging = False
+        super().mouseReleaseEvent(event)
 ```
-
-`GardenPatchWindow` requirements:
-
-- flags: `FramelessWindowHint | WindowStaysOnTopHint | Tool`;
-- `WA_TranslucentBackground`;
-- fixed `PATCH_SIZE` and renderer-supplied mask;
-- one small explicit `COLLAPSE` control located at `PATCH_COLLAPSE_RECT`;
-- `refresh_state()` stores only the latest immutable `GardenRenderState` from `DesktopController` and calls `update()`;
-- `paintEvent()` creates a `QPainter` and delegates to `renderer.paint_patch()`;
-- `changeEvent()` must use the proven production rule:
-
-```python
-if (
-    event.type() is QEvent.Type.ActivationChange
-    and self.isVisible()
-    and not self.isActiveWindow()
-):
-    self.collapse_requested.emit()
-```
-
-`VineAnchorWindow` requirements:
-
-- flags: `FramelessWindowHint | WindowStaysOnTopHint | Tool | WindowDoesNotAcceptFocus`;
-- `WA_TranslucentBackground`;
-- fixed `ANCHOR_SIZE` and renderer-supplied mask;
-- left click expands attached patch unless a drag occurred;
-- drag threshold is exactly `6` logical pixels;
-- while dragged with an expanded patch, the patch remains adjacent;
-- on completed drag, emit `position_committed(screen_name, x, y)` using the window's current screen name;
-- `expand_patch()` refreshes patch state immediately before show, places it with `adjacent_patch_origin()`, then calls `show()`, `raise_()`, and `activateWindow()`;
-- `collapse_patch()` hides the patch;
-- `paintEvent()` delegates to `renderer.paint_anchor()` with the current render state.
 
 No production window may call `GardenService.apply()` in V0-B.1.
 
@@ -748,7 +980,7 @@ No production window may call `GardenService.apply()` in V0-B.1.
 uv run pytest tests/test_desktop_windows.py -q
 ```
 
-If the offscreen activation test cannot exercise a real activation transition on the execution environment, retain the unit-level event contract and mark the live dismissal behavior for the Task 4 Windows manual gate. Do not weaken or remove the production `ActivationChange` implementation merely to satisfy an offscreen environment.
+If the execution environment cannot support Qt activation under the offscreen plugin, preserve the `ActivationChange` implementation and classify the live behavior under Task 4 manual Gate S5 rather than weakening the production contract.
 
 - [ ] **Step 6: Run Task 3 quality gates**
 
@@ -781,7 +1013,7 @@ git commit -m "feat: add production Qt desktop shell windows"
 **Interfaces:**
 - Produces: `DesktopShell`, `build_desktop_shell(service, preferences_store)`, and the `digital-garden-desktop` command.
 - Startup is collapsed-only in V0-B.1.
-- The app may temporarily create `GardenService(make_initial_state(seed=7))` so the production shell is runnable. This is explicitly replaced by persisted Garden lifecycle orchestration in V0-B.4; do not duplicate elapsed-time logic here.
+- The app temporarily creates `GardenService(make_initial_state(seed=7))` so this shell is runnable. V0-B.4 replaces that bootstrap with authoritative persisted Garden lifecycle orchestration; do not duplicate elapsed-time logic here.
 
 - [ ] **Step 1: Write failing application-wiring tests**
 
@@ -838,7 +1070,7 @@ uv run pytest tests/test_desktop_app.py -q
 
 - [ ] **Step 3: Implement the application shell builder**
 
-Create `src/digital_garden/desktop/app.py` with:
+Create `src/digital_garden/desktop/app.py`:
 
 ```python
 import sys
@@ -871,8 +1103,12 @@ def _screen_geometries() -> tuple[ScreenGeometry, ...]:
     if not screens:
         raise RuntimeError("no desktop screens are available")
     primary = QGuiApplication.primaryScreen()
-    ordered = ([primary] if primary is not None else []) + [screen for screen in screens if screen is not primary]
-    return tuple(ScreenGeometry(screen.name(), screen.availableGeometry()) for screen in ordered)
+    ordered = ([primary] if primary is not None else []) + [
+        screen for screen in screens if screen is not primary
+    ]
+    return tuple(
+        ScreenGeometry(screen.name(), screen.availableGeometry()) for screen in ordered
+    )
 
 
 def build_desktop_shell(
@@ -907,7 +1143,7 @@ def main() -> None:
     raise SystemExit(app.exec())
 ```
 
-Keep `DesktopShell` alive for the lifetime of the event loop; do not construct temporary windows that can be garbage collected.
+Keep `DesktopShell` alive for the lifetime of the event loop.
 
 - [ ] **Step 4: Verify app tests pass**
 
@@ -917,26 +1153,25 @@ uv run pytest tests/test_desktop_app.py -q
 
 - [ ] **Step 5: Update the README without overstating V0-B completion**
 
-Add a `V0-B.1 production shell` section documenting:
+Add this section and command:
 
-```text
-PySide6/Qt 6 is the approved Windows desktop technology.
-V0-B.1 provides the production desktop shell only; living garden rendering,
-Garden actions, persisted Garden resume, and ambient animation remain later
-V0-B slices.
-```
+```markdown
+## V0-B.1 production shell
 
-Add the exact local command:
+PySide6/Qt 6 is the approved Windows desktop technology. V0-B.1 provides the
+production desktop shell only; living garden rendering, Garden actions,
+persisted Garden resume, and ambient animation remain later V0-B slices.
 
 ```powershell
 uv run digital-garden-desktop
+```
 ```
 
 Do not describe V0-B as complete.
 
 - [ ] **Step 6: Write the Windows manual acceptance checklist**
 
-Create `docs/experiments/2026-08-14-digital-garden-v0b1-production-shell-checklist.md` with the exact run command and these gates, each initially `NOT TESTED`:
+Create `docs/experiments/2026-08-14-digital-garden-v0b1-production-shell-checklist.md` containing the run command `uv run digital-garden-desktop` and a table whose initial statuses are all `NOT TESTED`:
 
 ```text
 S1 Frameless/transparency — anchor and patch have no standard chrome; transparent gaps remain transparent.
@@ -952,8 +1187,6 @@ S8 Garden boundary — displayed condition/weather come from the real GardenServ
 The checklist must state that final visual quality is not judged in V0-B.1; V0-B.2 owns the living garden renderer.
 
 - [ ] **Step 7: Run the complete automated V0-B.1 gate**
-
-Run:
 
 ```powershell
 uv sync
@@ -983,15 +1216,13 @@ overgrowth = 0.29088800000001
 
 Any V0-A regression is a blocker.
 
-- [ ] **Step 8: Smoke-launch but do not self-certify Windows gates**
-
-Run:
+- [ ] **Step 8: Smoke-launch without self-certifying Windows gates**
 
 ```powershell
 uv run digital-garden-desktop
 ```
 
-Expected structural result: a compact production vine anchor appears; click expands a transparent organic placeholder patch that displays real condition/weather and offers COLLAPSE. Close the process after the smoke run. Automated or computer-use evidence may support the implementation, but S1–S8 remain for Nolan's real desktop acceptance unless he personally observes them.
+Expected structural result: a compact production vine anchor appears; click expands a transparent organic placeholder patch that displays real condition/weather and offers COLLAPSE. Automated or computer-use evidence may support the implementation, but S1-S8 remain for Nolan's real desktop acceptance unless he personally observes them.
 
 - [ ] **Step 9: Commit Task 4**
 
@@ -1002,19 +1233,21 @@ git commit -m "feat: complete V0-B.1 production desktop shell"
 
 - [ ] **Step 10: Independent whole-slice review and handoff**
 
-Review the complete V0-B.1 diff from its merge-base. Require:
+Review the complete V0-B.1 diff from its merge-base and require all of the following:
 
-- V0-B.1 spec compliance;
-- no Garden World authority leakage;
-- no Garden action implementation;
-- no elapsed-time duplicate clock;
-- desktop preferences contain only desktop state;
-- renderer consumes immutable presentation state;
-- window code does not parse Garden snapshots;
-- no full opaque patch rectangle;
-- no native/global hook;
-- all automated gates green;
-- no Critical or Important review findings.
+```text
+V0-B.1 spec compliance
+no Garden World authority leakage
+no Garden action implementation
+no elapsed-time duplicate clock
+desktop preferences contain only desktop state
+renderer consumes immutable presentation state
+window code does not parse Garden snapshots
+no full opaque patch rectangle
+no native/global hook
+all automated gates green
+no Critical or Important review findings
+```
 
 Repair Critical/Important findings and rerun the complete gate before handoff.
 
@@ -1026,7 +1259,7 @@ The implementation campaign ends at:
 READY_FOR_V0B1_MANUAL_ACCEPTANCE
 ```
 
-The implementation branch should be pushed but not merged until Nolan completes S1–S8. V0-B.2 must not begin before the production shell baseline is accepted and preserved.
+The implementation branch should be pushed but not merged until Nolan completes S1-S8. V0-B.2 must not begin before the production shell baseline is accepted and preserved.
 
 Required implementation branch:
 
@@ -1037,7 +1270,7 @@ build/digital-garden-v0b1-production-shell
 Recommended isolated worktree:
 
 ```text
-C:\Users\nolan\AIProjects\digital-garden-v0b1-production-shell
+C:/Users/nolan/AIProjects/digital-garden-v0b1-production-shell
 ```
 
 The branch must be based on the approved `design/digital-garden-v0b-desktop-artifact` branch containing this plan and the V0-B production specification.

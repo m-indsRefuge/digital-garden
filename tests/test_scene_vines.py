@@ -46,6 +46,19 @@ def test_vine_extent_increases_stable_edge_vine_spread() -> None:
     assert expanded.stems[0].end.x > compact.stems[0].end.x
 
 
+def test_edge_vines_gain_seed_stable_leaves_as_extent_grows() -> None:
+    state = _render_state()
+    low_state = replace(state, vine_extent=0.15)
+    high_state = replace(state, vine_extent=0.90)
+
+    low = build_edge_vine_scene(low_state, scene_style(low_state))
+    high = build_edge_vine_scene(high_state, scene_style(high_state))
+    high_again = build_edge_vine_scene(high_state, scene_style(high_state))
+
+    assert high == high_again
+    assert len(high.leaves) > len(low.leaves)
+
+
 def test_anchor_state_controls_compact_vine_vitality_and_leaf_forms() -> None:
     state = _render_state()
     dry_state = replace(state, anchor_state="DRY")

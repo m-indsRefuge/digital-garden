@@ -216,9 +216,7 @@ def _paint_leaves(
 
         if lighting.highlight_alpha > 0:
             painter.setOpacity(0.28 + leaf.opacity * 0.24)
-            painter.setBrush(
-                _qcolor(style.palette.foliage_highlight, lighting.highlight_alpha)
-            )
+            painter.setBrush(_qcolor(style.palette.foliage_highlight, lighting.highlight_alpha))
             painter.drawPath(_leaf_path(_highlight_leaf(leaf, lighting)))
 
         painter.restore()
@@ -298,15 +296,11 @@ def _edge_leaves(
                 VineLeaf(
                     center=VinePoint(
                         center_x
-                        + side
-                        * (3.0 + stable_unit(state.seed, "edge-leaf-x", identity) * 3.0),
-                        center_y
-                        + (stable_unit(state.seed, "edge-leaf-y", identity) - 0.5) * 5.0,
+                        + side * (3.0 + stable_unit(state.seed, "edge-leaf-x", identity) * 3.0),
+                        center_y + (stable_unit(state.seed, "edge-leaf-y", identity) - 0.5) * 5.0,
                     ),
-                    radius_x=4.0
-                    + stable_unit(state.seed, "edge-leaf-width", identity) * 2.5,
-                    radius_y=2.4
-                    + stable_unit(state.seed, "edge-leaf-height", identity) * 1.8,
+                    radius_x=4.0 + stable_unit(state.seed, "edge-leaf-width", identity) * 2.5,
+                    radius_y=2.4 + stable_unit(state.seed, "edge-leaf-height", identity) * 1.8,
                     angle=(-34.0 if side < 0.0 else 28.0)
                     + (stable_unit(state.seed, "edge-leaf-angle", identity) - 0.5) * 12.0,
                     form="pointed" if identity % 2 else "round",

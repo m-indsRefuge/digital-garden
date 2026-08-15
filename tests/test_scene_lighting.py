@@ -1,5 +1,5 @@
-from dataclasses import replace
 import importlib
+from dataclasses import replace
 
 from digital_garden.desktop.presentation import GardenRenderState
 from digital_garden.desktop.scene.style import scene_style

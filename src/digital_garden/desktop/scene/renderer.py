@@ -10,8 +10,11 @@ from digital_garden.desktop.scene.bonsai import (
 from digital_garden.desktop.scene.ground import (
     build_ground_scene,
     ground_mask_region,
+    ground_shadow_mask_region,
     paint_ground,
+    paint_ground_shadow,
 )
+from digital_garden.desktop.scene.lighting import scene_lighting
 from digital_garden.desktop.scene.style import scene_style
 from digital_garden.desktop.scene.vines import (
     anchor_vine_mask_region,
@@ -43,12 +46,14 @@ class QPainterShellRenderer:
 
     def patch_mask(self, state: GardenRenderState) -> QRegion:
         style = scene_style(state)
+        lighting = scene_lighting(style)
         bonsai = build_bonsai_scene(state, style)
         ground = build_ground_scene(state, style)
         edge_vines = build_edge_vine_scene(state, style)
 
         region = _rounded_region(PATCH_LABEL_RECT, 12)
         region = region.united(ground_mask_region(ground))
+        region = region.united(ground_shadow_mask_region(ground, lighting))
         region = region.united(edge_vine_mask_region(edge_vines))
         region = region.united(bonsai_mask_region(bonsai))
 
@@ -69,12 +74,15 @@ class QPainterShellRenderer:
     ) -> None:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         style = scene_style(state)
+        lighting = scene_lighting(style)
+        ground = build_ground_scene(state, style)
 
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(23, 52, 33, 220))
         painter.drawRoundedRect(PATCH_LABEL_RECT, 12, 12)
 
-        paint_ground(painter, build_ground_scene(state, style), style)
+        paint_ground_shadow(painter, ground, lighting)
+        paint_ground(painter, ground, style)
         paint_edge_vines(painter, build_edge_vine_scene(state, style), style)
         paint_bonsai(painter, build_bonsai_scene(state, style), style)
 

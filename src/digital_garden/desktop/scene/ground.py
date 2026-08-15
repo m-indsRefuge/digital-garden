@@ -298,4 +298,9 @@ def paint_ground(
                 )
             )
 
+    if style.palette.ambient.alpha:
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(_qcolor(style.palette.ambient))
+        painter.drawPath(path)
+
     painter.restore()

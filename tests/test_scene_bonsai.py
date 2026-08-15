@@ -61,6 +61,33 @@ def test_canopy_clusters_have_seed_stable_irregular_lobes() -> None:
     )
 
 
+def test_canopy_lobes_affect_the_rendered_bonsai_surface() -> None:
+    state = _render_state()
+    style = scene_style(state)
+    scene = build_bonsai_scene(state, style)
+    plain_scene = replace(
+        scene,
+        canopy=tuple(replace(cluster, lobes=()) for cluster in scene.canopy),
+    )
+
+    def painted(prepared_scene):
+        image = QImage(520, 420, QImage.Format.Format_ARGB32_Premultiplied)
+        image.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(image)
+        paint_bonsai(painter, prepared_scene, style)
+        painter.end()
+        return image
+
+    textured = painted(scene)
+    plain = painted(plain_scene)
+
+    assert any(
+        textured.pixelColor(x, y) != plain.pixelColor(x, y)
+        for x in range(140, 410, 2)
+        for y in range(65, 220, 2)
+    )
+
+
 def test_bonsai_scene_composes_a_curved_trunk_roots_and_readable_branches() -> None:
     state = _render_state()
     scene = build_bonsai_scene(state, scene_style(state))

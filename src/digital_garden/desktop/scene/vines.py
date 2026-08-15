@@ -12,6 +12,7 @@ from PySide6.QtGui import (
 )
 
 from digital_garden.desktop.presentation import GardenRenderState
+from digital_garden.desktop.scene.lighting import SceneLighting
 from digital_garden.desktop.scene.style import Color, SceneStyle
 from digital_garden.desktop.scene.variation import (
     candidate_pool,
@@ -156,10 +157,26 @@ def _paint_stems(
     stems: tuple[VineStem, ...],
     style: SceneStyle,
     alpha: int,
+    lighting: SceneLighting,
 ) -> None:
     painter.setBrush(Qt.BrushStyle.NoBrush)
 
     for stem in stems:
+        if lighting.shadow_alpha > 0:
+            shadow_pen = QPen(QColor(18, 25, 20, lighting.shadow_alpha))
+            shadow_pen.setWidthF(stem.width + 1.6)
+            shadow_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            shadow_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+
+            painter.save()
+            painter.translate(
+                lighting.shadow_offset.x() * 0.18,
+                lighting.shadow_offset.y() * 0.18,
+            )
+            painter.setPen(shadow_pen)
+            painter.drawPath(_stem_path(stem))
+            painter.restore()
+
         pen = QPen(_qcolor(style.palette.vine, alpha))
         pen.setWidthF(stem.width)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
@@ -168,14 +185,55 @@ def _paint_stems(
         painter.drawPath(_stem_path(stem))
 
 
+def _highlight_leaf(leaf: VineLeaf, lighting: SceneLighting) -> VineLeaf:
+    return VineLeaf(
+        center=VinePoint(
+            leaf.center.x + lighting.highlight_offset.x() * 0.18,
+            leaf.center.y + lighting.highlight_offset.y() * 0.18,
+        ),
+        radius_x=leaf.radius_x * 0.54,
+        radius_y=leaf.radius_y * 0.46,
+        angle=leaf.angle,
+        form=leaf.form,
+        opacity=leaf.opacity,
+    )
+
+
+def _paint_leaves(
+    painter: QPainter,
+    leaves: tuple[VineLeaf, ...],
+    base_color: Color,
+    style: SceneStyle,
+    lighting: SceneLighting,
+) -> None:
+    painter.setPen(Qt.PenStyle.NoPen)
+
+    for leaf in leaves:
+        painter.save()
+        painter.setOpacity(leaf.opacity)
+        painter.setBrush(_qcolor(base_color))
+        painter.drawPath(_leaf_path(leaf))
+
+        if lighting.highlight_alpha > 0:
+            painter.setOpacity(0.28 + leaf.opacity * 0.24)
+            painter.setBrush(
+                _qcolor(style.palette.foliage_highlight, lighting.highlight_alpha)
+            )
+            painter.drawPath(_leaf_path(_highlight_leaf(leaf, lighting)))
+
+        painter.restore()
+
+
 def paint_edge_vines(
     painter: QPainter,
     scene: EdgeVineScene,
     style: SceneStyle,
+    lighting: SceneLighting,
 ) -> None:
     painter.save()
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    _paint_stems(painter, scene.stems, style, 210)
+    _paint_stems(painter, scene.stems, style, 210, lighting)
+    _paint_leaves(painter, scene.leaves, style.palette.foliage, style, lighting)
     painter.restore()
 
 
@@ -183,19 +241,12 @@ def paint_anchor_vine(
     painter: QPainter,
     scene: AnchorVineScene,
     style: SceneStyle,
+    lighting: SceneLighting,
 ) -> None:
     painter.save()
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    _paint_stems(painter, scene.stems, style, 226)
-
-    painter.setPen(Qt.PenStyle.NoPen)
-    for leaf in scene.leaves:
-        painter.save()
-        painter.setOpacity(leaf.opacity)
-        painter.setBrush(_qcolor(style.palette.anchor_leaf))
-        painter.drawPath(_leaf_path(leaf))
-        painter.restore()
-
+    _paint_stems(painter, scene.stems, style, 226, lighting)
+    _paint_leaves(painter, scene.leaves, style.palette.anchor_leaf, style, lighting)
     painter.restore()
 
 

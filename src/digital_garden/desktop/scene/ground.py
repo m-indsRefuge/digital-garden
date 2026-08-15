@@ -28,8 +28,18 @@ class GroundDetail:
 
 
 @dataclass(frozen=True)
+class GroundMaterialMark:
+    center_x: float
+    center_y: float
+    radius_x: float
+    radius_y: float
+    opacity: float
+
+
+@dataclass(frozen=True)
 class GroundScene:
     outline: tuple[GroundPoint, ...]
+    material_marks: tuple[GroundMaterialMark, ...]
     clover: tuple[GroundDetail, ...]
     flowers: tuple[GroundDetail, ...]
     grass: tuple[GroundDetail, ...]
@@ -87,6 +97,26 @@ def _ground_detail(x: float, y: float, scale: float) -> GroundDetail:
     )
 
 
+def _material_marks(state: GardenRenderState) -> tuple[GroundMaterialMark, ...]:
+    candidates = candidate_pool(state.seed, "ground-material", 32)
+    marks = []
+
+    for index, candidate in enumerate(candidates):
+        detail = _ground_detail(candidate.x, candidate.y, candidate.scale)
+        marks.append(
+            GroundMaterialMark(
+                center_x=detail.center_x,
+                center_y=detail.center_y,
+                radius_x=6.0 + candidate.scale * 10.0,
+                radius_y=2.5 + candidate.scale * 5.0,
+                opacity=0.08
+                + stable_unit(state.seed, "ground-material-alpha", index) * 0.12,
+            )
+        )
+
+    return tuple(marks)
+
+
 def _ground_outline(state: GardenRenderState) -> tuple[GroundPoint, ...]:
     return tuple(
         GroundPoint(
@@ -104,6 +134,7 @@ def build_ground_scene(
     density = max(0.0, min(1.0, state.ground_density))
     return GroundScene(
         outline=_ground_outline(state),
+        material_marks=_material_marks(state),
         clover=_detail_sites(state, "ground-clover", 24, density),
         flowers=_detail_sites(state, "ground-flowers", 8, max(0.0, (density - 0.35) / 0.65)),
         grass=_detail_sites(state, "ground-grass", 22, density),

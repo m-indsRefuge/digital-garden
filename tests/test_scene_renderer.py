@@ -9,13 +9,8 @@ from PySide6.QtWidgets import QApplication
 from digital_garden.desktop.controller import DesktopController
 from digital_garden.desktop.presentation import GardenRenderState
 from digital_garden.desktop.scene import renderer as renderer_module
-from digital_garden.desktop.scene.bonsai import bonsai_mask_region, build_bonsai_scene
-from digital_garden.desktop.scene.ground import (
-    build_ground_scene,
-    ground_mask_region,
-    ground_shadow_mask_region,
-)
-from digital_garden.desktop.scene.lighting import scene_lighting
+from digital_garden.desktop.scene.bonsai import build_bonsai_scene
+from digital_garden.desktop.scene.ground import build_ground_scene, ground_mask_region
 from digital_garden.desktop.scene.renderer import QPainterShellRenderer
 from digital_garden.desktop.scene.style import scene_style
 from digital_garden.desktop.scene.vines import (

@@ -15,7 +15,7 @@ from digital_garden.desktop.scene.ground import (
     paint_ground_shadow,
 )
 from digital_garden.desktop.scene.lighting import scene_lighting
-from digital_garden.desktop.scene.style import scene_style
+from digital_garden.desktop.scene.style import Color, SceneStyle, scene_style
 from digital_garden.desktop.scene.vines import (
     anchor_vine_mask_region,
     build_anchor_vine_scene,
@@ -32,10 +32,59 @@ PATCH_LABEL_RECT = QRect(18, 16, 238, 86)
 PATCH_COLLAPSE_RECT = QRect(414, 352, 82, 40)
 
 
+def _qcolor(color: Color, alpha: int | None = None) -> QColor:
+    return QColor(
+        color.red,
+        color.green,
+        color.blue,
+        color.alpha if alpha is None else alpha,
+    )
+
+
 def _rounded_region(rect: QRect, radius: int) -> QRegion:
     path = QPainterPath()
     path.addRoundedRect(rect, radius, radius)
     return QRegion(path.toFillPolygon().toPolygon())
+
+
+def _paint_patch_overlay(
+    painter: QPainter,
+    state: GardenRenderState,
+    style: SceneStyle,
+) -> None:
+    painter.save()
+    painter.setPen(Qt.PenStyle.NoPen)
+
+    painter.setBrush(_qcolor(style.palette.overlay_backing, 76))
+    painter.drawRoundedRect(PATCH_LABEL_RECT, 12, 12)
+    painter.setBrush(_qcolor(style.palette.overlay_backing))
+    painter.drawRoundedRect(PATCH_LABEL_RECT.adjusted(3, 3, -3, -3), 10, 10)
+
+    painter.setPen(_qcolor(style.palette.overlay_text))
+    painter.drawText(
+        30,
+        48,
+        f"CONDITION: {state.condition}",
+    )
+    painter.drawText(
+        30,
+        72,
+        f"WEATHER: {state.weather}",
+    )
+
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(_qcolor(style.palette.soil, 202))
+    painter.drawRoundedRect(PATCH_COLLAPSE_RECT, 10, 10)
+    painter.setBrush(_qcolor(style.palette.moss, 156))
+    painter.drawRoundedRect(PATCH_COLLAPSE_RECT.adjusted(2, 2, -2, -2), 8, 8)
+
+    painter.setPen(_qcolor(style.palette.overlay_text))
+    painter.drawText(
+        PATCH_COLLAPSE_RECT,
+        Qt.AlignmentFlag.AlignCenter,
+        "COLLAPSE",
+    )
+    painter.restore()
 
 
 class QPainterShellRenderer:
@@ -84,10 +133,6 @@ class QPainterShellRenderer:
         ground = build_ground_scene(state, style)
         bonsai = build_bonsai_scene(state, style)
 
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(23, 52, 33, 220))
-        painter.drawRoundedRect(PATCH_LABEL_RECT, 12, 12)
-
         paint_ground_shadow(painter, ground, lighting)
         paint_ground(painter, ground, style)
         paint_edge_vines(
@@ -97,15 +142,4 @@ class QPainterShellRenderer:
             lighting,
         )
         paint_bonsai(painter, bonsai, style, lighting)
-
-        painter.setPen(QColor("#E7F2DB"))
-        painter.drawText(
-            30,
-            48,
-            f"CONDITION: {state.condition}",
-        )
-        painter.drawText(
-            30,
-            72,
-            f"WEATHER: {state.weather}",
-        )
+        _paint_patch_overlay(painter, state, style)

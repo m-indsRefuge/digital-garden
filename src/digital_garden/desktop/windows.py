@@ -85,6 +85,7 @@ class VineAnchorWindow(QWidget):
 
         self._controller = controller
         self._renderer = renderer
+        self._render_state = controller.render_state()
         self._patch: GardenPatchWindow | None = None
 
         self._drag_origin = None
@@ -93,7 +94,7 @@ class VineAnchorWindow(QWidget):
 
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFixedSize(ANCHOR_SIZE)
-        self.setMask(renderer.anchor_mask())
+        self.setMask(renderer.anchor_mask(self._render_state))
 
         self.clicked.connect(self.expand_patch)
 
@@ -104,6 +105,11 @@ class VineAnchorWindow(QWidget):
         self._patch = patch
         patch.collapse_requested.connect(self.collapse_patch)
 
+    def refresh_state(self) -> None:
+        self._render_state = self._controller.render_state()
+        self.setMask(self._renderer.anchor_mask(self._render_state))
+        self.update()
+
     def expand_patch(self) -> None:
         if self._patch is None:
             return
@@ -113,6 +119,7 @@ class VineAnchorWindow(QWidget):
         if screen is None:
             return
 
+        self.refresh_state()
         self._patch.refresh_state()
 
         self._patch.move(
@@ -135,7 +142,7 @@ class VineAnchorWindow(QWidget):
         painter = QPainter(self)
         self._renderer.paint_anchor(
             painter,
-            self._controller.render_state(),
+            self._render_state,
         )
 
     def mousePressEvent(

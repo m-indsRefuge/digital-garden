@@ -324,6 +324,24 @@ def paint_ground(
     painter.drawPath(path)
     painter.setOpacity(1.0)
 
+    for index, mark in enumerate(scene.material_marks):
+        painter.setOpacity(mark.opacity)
+        painter.setBrush(
+            _darkened(style.palette.moss, 0.18)
+            if index % 2
+            else _darkened(style.palette.soil, 0.10)
+        )
+        painter.drawEllipse(
+            QRectF(
+                mark.center_x - mark.radius_x,
+                mark.center_y - mark.radius_y,
+                mark.radius_x * 2.0,
+                mark.radius_y * 2.0,
+            )
+        )
+
+    painter.setOpacity(1.0)
+
     for detail in scene.moss:
         _paint_moss_patch(painter, detail, style)
 

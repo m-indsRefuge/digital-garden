@@ -109,8 +109,7 @@ def _material_marks(state: GardenRenderState) -> tuple[GroundMaterialMark, ...]:
                 center_y=detail.center_y,
                 radius_x=6.0 + candidate.scale * 10.0,
                 radius_y=2.5 + candidate.scale * 5.0,
-                opacity=0.08
-                + stable_unit(state.seed, "ground-material-alpha", index) * 0.12,
+                opacity=0.08 + stable_unit(state.seed, "ground-material-alpha", index) * 0.12,
             )
         )
 

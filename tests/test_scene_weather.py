@@ -1,7 +1,12 @@
+import os
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
 from dataclasses import replace
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPainter
+from PySide6.QtWidgets import QApplication
 
 from digital_garden.desktop.presentation import GardenRenderState
 from digital_garden.desktop.scene.renderer import QPainterShellRenderer
@@ -27,11 +32,13 @@ def _render_state() -> GardenRenderState:
 
 
 def _paint_patch(state: GardenRenderState) -> QImage:
+    app = QApplication.instance() or QApplication([])
     image = QImage(520, 420, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(Qt.GlobalColor.transparent)
     painter = QPainter(image)
     QPainterShellRenderer().paint_patch(painter, state)
     painter.end()
+    app.processEvents()
     return image
 
 

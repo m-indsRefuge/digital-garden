@@ -8,8 +8,13 @@ from PySide6.QtWidgets import QApplication
 
 from digital_garden.desktop.controller import DesktopController
 from digital_garden.desktop.presentation import GardenRenderState
-from digital_garden.desktop.scene.bonsai import build_bonsai_scene
-from digital_garden.desktop.scene.ground import build_ground_scene, ground_mask_region
+from digital_garden.desktop.scene.bonsai import bonsai_mask_region, build_bonsai_scene
+from digital_garden.desktop.scene.ground import (
+    build_ground_scene,
+    ground_mask_region,
+    ground_shadow_mask_region,
+)
+from digital_garden.desktop.scene.lighting import scene_lighting
 from digital_garden.desktop.scene.renderer import (
     PATCH_COLLAPSE_RECT,
     QPainterShellRenderer,
@@ -104,12 +109,31 @@ def test_patch_contact_shadow_is_visible_and_inside_window_mask() -> None:
 
 
 def test_renderer_owns_soft_hud_and_collapse_visuals() -> None:
-    image = _paint_patch(_render_state())
-    hud = image.pixelColor(QPoint(24, 24))
-    collapse = image.pixelColor(PATCH_COLLAPSE_RECT.center())
+    state = _render_state()
+    style = scene_style(state)
+    lighting = scene_lighting(style)
+    ground = build_ground_scene(state, style)
+    bonsai = build_bonsai_scene(state, style)
+    edge_vines = build_edge_vine_scene(state, style)
 
+    garden_region = ground_mask_region(ground)
+    garden_region = garden_region.united(ground_shadow_mask_region(ground, lighting))
+    garden_region = garden_region.united(bonsai_mask_region(bonsai))
+    garden_region = garden_region.united(edge_vine_mask_region(edge_vines))
+
+    collapse_only_points = [
+        QPoint(x, y)
+        for y in range(PATCH_COLLAPSE_RECT.top() + 6, PATCH_COLLAPSE_RECT.bottom() - 5)
+        for x in range(PATCH_COLLAPSE_RECT.left() + 8, PATCH_COLLAPSE_RECT.right() - 7)
+        if not garden_region.contains(QPoint(x, y))
+    ]
+
+    image = _paint_patch(state)
+    hud = image.pixelColor(QPoint(24, 24))
+
+    assert collapse_only_points
     assert 0 < hud.alpha() < 255
-    assert collapse.alpha() > 0
+    assert any(image.pixelColor(point).alpha() > 0 for point in collapse_only_points)
 
 
 def test_patch_rendering_does_not_mutate_authoritative_service_state() -> None:

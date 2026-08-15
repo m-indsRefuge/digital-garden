@@ -329,6 +329,24 @@ def bonsai_mask_region(scene: BonsaiScene) -> QRegion:
     return region
 
 
+def _paint_structural_shadow(
+    painter: QPainter,
+    scene: BonsaiScene,
+    style: SceneStyle,
+    lighting: SceneLighting,
+) -> None:
+    painter.save()
+    painter.setClipRegion(bonsai_mask_region(scene), Qt.ClipOperation.IntersectClip)
+    painter.translate(lighting.shadow_offset.x(), lighting.shadow_offset.y())
+    shadow_color = _darkened(style.palette.trunk, 0.48)
+    shadow_opacity = min(0.38, 0.18 + lighting.shadow_alpha / 500.0)
+
+    for stroke in (*scene.roots, scene.trunk):
+        _paint_stroke(painter, stroke, shadow_color, shadow_opacity)
+
+    painter.restore()
+
+
 def paint_bonsai(
     painter: QPainter,
     scene: BonsaiScene,
@@ -337,6 +355,8 @@ def paint_bonsai(
 ) -> None:
     painter.save()
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    _paint_structural_shadow(painter, scene, style, lighting)
 
     trunk_shadow = _darkened(style.palette.trunk, 0.34)
     for root in scene.roots:

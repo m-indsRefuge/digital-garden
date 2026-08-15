@@ -2,12 +2,13 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QPoint, QRect, Qt
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtWidgets import QApplication
 
 from digital_garden.desktop.controller import DesktopController
 from digital_garden.desktop.presentation import GardenRenderState
+from digital_garden.desktop.scene import renderer as renderer_module
 from digital_garden.desktop.scene.bonsai import bonsai_mask_region, build_bonsai_scene
 from digital_garden.desktop.scene.ground import (
     build_ground_scene,
@@ -15,10 +16,7 @@ from digital_garden.desktop.scene.ground import (
     ground_shadow_mask_region,
 )
 from digital_garden.desktop.scene.lighting import scene_lighting
-from digital_garden.desktop.scene.renderer import (
-    PATCH_COLLAPSE_RECT,
-    QPainterShellRenderer,
-)
+from digital_garden.desktop.scene.renderer import QPainterShellRenderer
 from digital_garden.desktop.scene.style import scene_style
 from digital_garden.desktop.scene.vines import (
     anchor_vine_mask_region,
@@ -108,32 +106,20 @@ def test_patch_contact_shadow_is_visible_and_inside_window_mask() -> None:
     assert mask.contains(point)
 
 
-def test_renderer_owns_soft_hud_and_collapse_visuals() -> None:
+def test_renderer_owns_soft_hud_and_collapse_visuals(monkeypatch) -> None:
     state = _render_state()
-    style = scene_style(state)
-    lighting = scene_lighting(style)
-    ground = build_ground_scene(state, style)
-    bonsai = build_bonsai_scene(state, style)
-    edge_vines = build_edge_vine_scene(state, style)
+    baseline = _paint_patch(state)
+    hud = baseline.pixelColor(QPoint(24, 24))
 
-    garden_region = ground_mask_region(ground)
-    garden_region = garden_region.united(ground_shadow_mask_region(ground, lighting))
-    garden_region = garden_region.united(bonsai_mask_region(bonsai))
-    garden_region = garden_region.united(edge_vine_mask_region(edge_vines))
+    relocated = QRect(420, 24, 82, 40)
+    sample = relocated.center()
+    assert baseline.pixelColor(sample).alpha() == 0
 
-    collapse_only_points = [
-        QPoint(x, y)
-        for y in range(PATCH_COLLAPSE_RECT.top() + 6, PATCH_COLLAPSE_RECT.bottom() - 5)
-        for x in range(PATCH_COLLAPSE_RECT.left() + 8, PATCH_COLLAPSE_RECT.right() - 7)
-        if not garden_region.contains(QPoint(x, y))
-    ]
+    monkeypatch.setattr(renderer_module, "PATCH_COLLAPSE_RECT", relocated)
+    shifted = _paint_patch(state)
 
-    image = _paint_patch(state)
-    hud = image.pixelColor(QPoint(24, 24))
-
-    assert collapse_only_points
     assert 0 < hud.alpha() < 255
-    assert any(image.pixelColor(point).alpha() > 0 for point in collapse_only_points)
+    assert shifted.pixelColor(sample).alpha() > 0
 
 
 def test_patch_rendering_does_not_mutate_authoritative_service_state() -> None:

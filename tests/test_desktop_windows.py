@@ -48,6 +48,19 @@ def test_anchor_and_patch_keep_the_proven_window_contract() -> None:
     app.processEvents()
 
 
+def test_collapse_button_is_only_an_invisible_hit_target() -> None:
+    app = QApplication.instance() or QApplication([])
+    patch = GardenPatchWindow(_controller(), QPainterShellRenderer())
+    button = patch._collapse_button
+
+    assert button.text() == ""
+    assert button.isFlat()
+    assert "background: transparent" in button.styleSheet()
+
+    patch.close()
+    app.processEvents()
+
+
 def test_activation_change_collapses_attached_patch() -> None:
     app = QApplication.instance() or QApplication([])
     renderer = QPainterShellRenderer()

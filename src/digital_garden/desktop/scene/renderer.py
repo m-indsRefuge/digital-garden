@@ -65,7 +65,13 @@ class QPainterShellRenderer:
         state: GardenRenderState,
     ) -> None:
         style = scene_style(state)
-        paint_anchor_vine(painter, build_anchor_vine_scene(state, style), style)
+        lighting = scene_lighting(style)
+        paint_anchor_vine(
+            painter,
+            build_anchor_vine_scene(state, style),
+            style,
+            lighting,
+        )
 
     def paint_patch(
         self,
@@ -84,7 +90,12 @@ class QPainterShellRenderer:
 
         paint_ground_shadow(painter, ground, lighting)
         paint_ground(painter, ground, style)
-        paint_edge_vines(painter, build_edge_vine_scene(state, style), style)
+        paint_edge_vines(
+            painter,
+            build_edge_vine_scene(state, style),
+            style,
+            lighting,
+        )
         paint_bonsai(painter, bonsai, style, lighting)
 
         painter.setPen(QColor("#E7F2DB"))

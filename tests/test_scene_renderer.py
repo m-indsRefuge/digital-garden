@@ -41,6 +41,17 @@ def _render_state() -> GardenRenderState:
     )
 
 
+def _paint_patch(state: GardenRenderState) -> QImage:
+    app = QApplication.instance() or QApplication([])
+    image = QImage(520, 420, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(image)
+    QPainterShellRenderer().paint_patch(painter, state)
+    painter.end()
+    app.processEvents()
+    return image
+
+
 def test_patch_mask_contains_the_current_bonsai_scene_geometry() -> None:
     state = _render_state()
     scene = build_bonsai_scene(state, scene_style(state))
@@ -77,6 +88,16 @@ def test_anchor_mask_matches_the_current_compact_vine_geometry() -> None:
     mask = QPainterShellRenderer().anchor_mask(state)
 
     assert anchor_vine_mask_region(anchor).subtracted(mask).isEmpty()
+
+
+def test_patch_contact_shadow_is_visible_and_inside_window_mask() -> None:
+    state = _render_state()
+    image = _paint_patch(state)
+    mask = QPainterShellRenderer().patch_mask(state)
+    point = QPoint(260, 403)
+
+    assert image.pixelColor(point).alpha() > 0
+    assert mask.contains(point)
 
 
 def test_patch_rendering_does_not_mutate_authoritative_service_state() -> None:

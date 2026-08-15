@@ -47,6 +47,20 @@ def test_canopy_density_reveals_a_stable_subset_of_asymmetric_clusters() -> None
     assert dense.canopy[: len(sparse.canopy)] == sparse.canopy
 
 
+def test_canopy_clusters_have_seed_stable_irregular_lobes() -> None:
+    state = _render_state()
+    scene = build_bonsai_scene(state, scene_style(state))
+    again = build_bonsai_scene(state, scene_style(state))
+
+    assert scene.canopy == again.canopy
+    assert all(len(cluster.lobes) == 5 for cluster in scene.canopy)
+    assert any(
+        lobe.offset_x != 0.0 or lobe.offset_y != 0.0
+        for cluster in scene.canopy
+        for lobe in cluster.lobes
+    )
+
+
 def test_bonsai_scene_composes_a_curved_trunk_roots_and_readable_branches() -> None:
     state = _render_state()
     scene = build_bonsai_scene(state, scene_style(state))

@@ -10,7 +10,10 @@ from digital_garden.desktop.controller import DesktopController
 from digital_garden.desktop.presentation import GardenRenderState
 from digital_garden.desktop.scene.bonsai import build_bonsai_scene
 from digital_garden.desktop.scene.ground import build_ground_scene, ground_mask_region
-from digital_garden.desktop.scene.renderer import QPainterShellRenderer
+from digital_garden.desktop.scene.renderer import (
+    PATCH_COLLAPSE_RECT,
+    QPainterShellRenderer,
+)
 from digital_garden.desktop.scene.style import scene_style
 from digital_garden.desktop.scene.vines import (
     anchor_vine_mask_region,
@@ -98,6 +101,15 @@ def test_patch_contact_shadow_is_visible_and_inside_window_mask() -> None:
 
     assert image.pixelColor(point).alpha() > 0
     assert mask.contains(point)
+
+
+def test_renderer_owns_soft_hud_and_collapse_visuals() -> None:
+    image = _paint_patch(_render_state())
+    hud = image.pixelColor(QPoint(24, 24))
+    collapse = image.pixelColor(PATCH_COLLAPSE_RECT.center())
+
+    assert 0 < hud.alpha() < 255
+    assert collapse.alpha() > 0
 
 
 def test_patch_rendering_does_not_mutate_authoritative_service_state() -> None:

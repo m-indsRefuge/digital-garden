@@ -12,6 +12,12 @@ from digital_garden.desktop.scene.bonsai import build_bonsai_scene
 from digital_garden.desktop.scene.ground import build_ground_scene, ground_mask_region
 from digital_garden.desktop.scene.renderer import QPainterShellRenderer
 from digital_garden.desktop.scene.style import scene_style
+from digital_garden.desktop.scene.vines import (
+    anchor_vine_mask_region,
+    build_anchor_vine_scene,
+    build_edge_vine_scene,
+    edge_vine_mask_region,
+)
 from digital_garden.domain import make_initial_state
 from digital_garden.service import GardenService
 
@@ -53,6 +59,24 @@ def test_patch_mask_contains_the_current_organic_ground_footprint() -> None:
     mask = QPainterShellRenderer().patch_mask(state)
 
     assert ground_mask_region(ground).subtracted(mask).isEmpty()
+
+
+def test_patch_mask_contains_the_current_edge_vine_geometry() -> None:
+    state = _render_state()
+    edge_vines = build_edge_vine_scene(state, scene_style(state))
+
+    mask = QPainterShellRenderer().patch_mask(state)
+
+    assert edge_vine_mask_region(edge_vines).subtracted(mask).isEmpty()
+
+
+def test_anchor_mask_matches_the_current_compact_vine_geometry() -> None:
+    state = _render_state()
+    anchor = build_anchor_vine_scene(state, scene_style(state))
+
+    mask = QPainterShellRenderer().anchor_mask(state)
+
+    assert anchor_vine_mask_region(anchor).subtracted(mask).isEmpty()
 
 
 def test_patch_rendering_does_not_mutate_authoritative_service_state() -> None:

@@ -9,7 +9,10 @@ from PySide6.QtGui import QImage, QPainter
 from PySide6.QtWidgets import QApplication
 
 from digital_garden.desktop.presentation import GardenRenderState
+from digital_garden.desktop.scene import renderer as renderer_module
+from digital_garden.desktop.scene.bonsai import build_bonsai_scene
 from digital_garden.desktop.scene.renderer import QPainterShellRenderer
+from digital_garden.desktop.scene.style import scene_style
 
 
 def _render_state() -> GardenRenderState:
@@ -48,3 +51,28 @@ def test_weather_changes_static_ground_atmosphere() -> None:
     rainy = _paint_patch(replace(state, weather="RAINY"))
 
     assert sunny.pixelColor(260, 360) != rainy.pixelColor(260, 360)
+
+
+def test_weather_ambient_tints_static_canopy(monkeypatch) -> None:
+    state = _render_state()
+    base_style = scene_style(state)
+    sunny_ambient = scene_style(replace(state, weather="SUNNY")).palette.ambient
+    rainy_ambient = scene_style(replace(state, weather="RAINY")).palette.ambient
+    sunny_style = replace(
+        base_style,
+        palette=replace(base_style.palette, ambient=sunny_ambient),
+    )
+    rainy_style = replace(
+        base_style,
+        palette=replace(base_style.palette, ambient=rainy_ambient),
+    )
+    canopy = build_bonsai_scene(state, base_style).canopy[0]
+    sample_x = round(canopy.center_x)
+    sample_y = round(canopy.center_y)
+
+    monkeypatch.setattr(renderer_module, "scene_style", lambda _state: sunny_style)
+    sunny = _paint_patch(state)
+    monkeypatch.setattr(renderer_module, "scene_style", lambda _state: rainy_style)
+    rainy = _paint_patch(state)
+
+    assert sunny.pixelColor(sample_x, sample_y) != rainy.pixelColor(sample_x, sample_y)

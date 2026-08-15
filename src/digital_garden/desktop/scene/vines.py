@@ -203,8 +203,7 @@ def build_edge_vine_scene(
     candidates = candidate_pool(state.seed, "edge-vine", 5)
     visible = visible_candidates(candidates, 0.25 + extent * 0.75)
     stems = tuple(
-        _edge_stem(candidate.x, candidate.y, candidate.scale, extent)
-        for candidate in visible
+        _edge_stem(candidate.x, candidate.y, candidate.scale, extent) for candidate in visible
     )
     return EdgeVineScene(stems=stems)
 

@@ -4,6 +4,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPainterPathStroker, QPen, QRegion
 
 from digital_garden.desktop.presentation import GardenRenderState
+from digital_garden.desktop.scene.lighting import SceneLighting
 from digital_garden.desktop.scene.style import Color, SceneStyle
 from digital_garden.desktop.scene.variation import (
     candidate_pool,
@@ -126,6 +127,12 @@ def _outline_path(scene: GroundScene) -> QPainterPath:
     return path
 
 
+def _translated_outline_path(scene: GroundScene, lighting: SceneLighting) -> QPainterPath:
+    path = QPainterPath(_outline_path(scene))
+    path.translate(lighting.shadow_offset.x(), lighting.shadow_offset.y())
+    return path
+
+
 def ground_mask_region(scene: GroundScene) -> QRegion:
     """Return the clickable opaque ground footprint for a prepared scene."""
     path = _outline_path(scene)
@@ -133,6 +140,23 @@ def ground_mask_region(scene: GroundScene) -> QRegion:
     stroker.setWidth(6.0)
     mask_path = path.united(stroker.createStroke(path))
     return QRegion(mask_path.toFillPolygon().toPolygon())
+
+
+def ground_shadow_mask_region(scene: GroundScene, lighting: SceneLighting) -> QRegion:
+    """Return the exact translated region used by the contact-shadow paint pass."""
+    return QRegion(_translated_outline_path(scene, lighting).toFillPolygon().toPolygon())
+
+
+def paint_ground_shadow(
+    painter: QPainter,
+    scene: GroundScene,
+    lighting: SceneLighting,
+) -> None:
+    painter.save()
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(QColor(18, 25, 20, lighting.shadow_alpha))
+    painter.drawPath(_translated_outline_path(scene, lighting))
+    painter.restore()
 
 
 def _darkened(color: Color, amount: float) -> QColor:

@@ -79,6 +79,30 @@ def test_ground_material_marks_are_seed_stable_and_seed_specific() -> None:
     assert len(first.material_marks) >= 18
 
 
+def test_ground_material_marks_affect_the_rendered_surface() -> None:
+    state = _render_state()
+    style = scene_style(state)
+    scene = build_ground_scene(state, style)
+    plain_scene = replace(scene, material_marks=())
+
+    def painted(prepared_scene):
+        image = QImage(520, 420, QImage.Format.Format_ARGB32_Premultiplied)
+        image.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(image)
+        paint_ground(painter, prepared_scene, style)
+        painter.end()
+        return image
+
+    textured = painted(scene)
+    plain = painted(plain_scene)
+
+    assert any(
+        textured.pixelColor(round(mark.center_x), round(mark.center_y))
+        != plain.pixelColor(round(mark.center_x), round(mark.center_y))
+        for mark in scene.material_marks
+    )
+
+
 def test_paint_ground_draws_a_prepared_organic_patch() -> None:
     state = _render_state()
     style = scene_style(state)

@@ -38,7 +38,9 @@ class GardenPatchWindow(QWidget):
         self.setFixedSize(PATCH_SIZE)
         self.setMask(renderer.patch_mask(self._render_state))
 
-        self._collapse_button = QPushButton("COLLAPSE", self)
+        self._collapse_button = QPushButton("", self)
+        self._collapse_button.setFlat(True)
+        self._collapse_button.setStyleSheet("background: transparent; border: none;")
         self._collapse_button.setGeometry(PATCH_COLLAPSE_RECT)
         self._collapse_button.clicked.connect(self.collapse_requested.emit)
 

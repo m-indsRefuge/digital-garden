@@ -132,14 +132,28 @@ class QPainterShellRenderer:
         lighting = scene_lighting(style)
         ground = build_ground_scene(state, style)
         bonsai = build_bonsai_scene(state, style)
+        edge_vines = build_edge_vine_scene(state, style)
 
         paint_ground_shadow(painter, ground, lighting)
         paint_ground(painter, ground, style)
         paint_edge_vines(
             painter,
-            build_edge_vine_scene(state, style),
+            edge_vines,
             style,
             lighting,
         )
         paint_bonsai(painter, bonsai, style, lighting)
+
+        scene_region = ground_mask_region(ground)
+        scene_region = scene_region.united(edge_vine_mask_region(edge_vines))
+        scene_region = scene_region.united(bonsai_mask_region(bonsai))
+
+        painter.save()
+        painter.setClipRegion(scene_region)
+        painter.fillRect(
+            QRect(0, 0, PATCH_SIZE.width(), PATCH_SIZE.height()),
+            _qcolor(style.palette.ambient),
+        )
+        painter.restore()
+
         _paint_patch_overlay(painter, state, style)

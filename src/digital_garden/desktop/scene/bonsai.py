@@ -13,6 +13,7 @@ from PySide6.QtGui import (
 )
 
 from digital_garden.desktop.presentation import GardenRenderState
+from digital_garden.desktop.scene.lighting import SceneLighting
 from digital_garden.desktop.scene.style import Color, SceneStyle
 from digital_garden.desktop.scene.variation import stable_unit
 
@@ -332,6 +333,7 @@ def paint_bonsai(
     painter: QPainter,
     scene: BonsaiScene,
     style: SceneStyle,
+    lighting: SceneLighting,
 ) -> None:
     painter.save()
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -345,6 +347,8 @@ def paint_bonsai(
         _paint_stroke(painter, branch, _darkened(style.palette.trunk, 0.20), branch_opacity)
 
     _paint_stroke(painter, scene.trunk, _qcolor(style.palette.trunk))
+    painter.save()
+    painter.translate(lighting.highlight_offset.x(), lighting.highlight_offset.y())
     _paint_stroke(
         painter,
         BezierStroke(
@@ -352,19 +356,21 @@ def paint_bonsai(
             control_one=scene.trunk.control_one,
             control_two=scene.trunk.control_two,
             end=scene.trunk.end,
-            width=scene.trunk.width * 0.28,
+            width=scene.trunk.width * 0.24,
         ),
-        _qcolor(style.palette.foliage_highlight, 110),
-        0.42,
+        _qcolor(style.palette.foliage_highlight, lighting.highlight_alpha),
+        0.46,
     )
+    painter.restore()
 
     for cluster in scene.canopy:
         painter.save()
         painter.translate(cluster.center_x, cluster.center_y)
         painter.rotate(cluster.rotation)
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(_qcolor(style.palette.foliage_shadow, 212))
-        painter.drawEllipse(
+
+        envelope = QPainterPath()
+        envelope.addEllipse(
             QRectF(
                 -cluster.radius_x,
                 -cluster.radius_y,
@@ -372,25 +378,57 @@ def paint_bonsai(
                 cluster.radius_y * 2.0,
             )
         )
-        painter.setBrush(_qcolor(style.palette.foliage))
-        painter.drawEllipse(
-            QRectF(
-                -cluster.radius_x * 0.92,
-                -cluster.radius_y * 0.90 + 2.0,
-                cluster.radius_x * 1.84,
-                cluster.radius_y * 1.76,
+        painter.setClipPath(envelope, Qt.ClipOperation.IntersectClip)
+
+        painter.setBrush(_qcolor(style.palette.foliage_shadow, 150 + lighting.shadow_alpha))
+        painter.drawPath(envelope)
+
+        shadow_x = lighting.shadow_offset.x() * 0.22
+        shadow_y = lighting.shadow_offset.y() * 0.22
+        highlight_x = lighting.highlight_offset.x() * 0.28
+        highlight_y = lighting.highlight_offset.y() * 0.28
+
+        for lobe in cluster.lobes:
+            center_x = lobe.offset_x * cluster.radius_x
+            center_y = lobe.offset_y * cluster.radius_y
+            radius_x = lobe.scale_x * cluster.radius_x
+            radius_y = lobe.scale_y * cluster.radius_y
+
+            painter.setOpacity(0.58)
+            painter.setBrush(_qcolor(style.palette.foliage_shadow, lighting.shadow_alpha))
+            painter.drawEllipse(
+                QRectF(
+                    center_x - radius_x + shadow_x,
+                    center_y - radius_y + shadow_y,
+                    radius_x * 2.0,
+                    radius_y * 2.0,
+                )
             )
-        )
-        painter.setOpacity(0.22 + style.foliage_vitality * 0.30)
-        painter.setBrush(_qcolor(style.palette.foliage_highlight, 138))
-        painter.drawEllipse(
-            QRectF(
-                -cluster.radius_x * 0.52,
-                -cluster.radius_y * 0.62,
-                cluster.radius_x * 0.82,
-                cluster.radius_y * 0.54,
+
+            painter.setOpacity(1.0)
+            painter.setBrush(_qcolor(style.palette.foliage))
+            painter.drawEllipse(
+                QRectF(
+                    center_x - radius_x,
+                    center_y - radius_y,
+                    radius_x * 2.0,
+                    radius_y * 2.0,
+                )
             )
-        )
+
+            painter.setOpacity(0.18 + style.foliage_vitality * 0.26)
+            painter.setBrush(_qcolor(style.palette.foliage_highlight, lighting.highlight_alpha))
+            highlight_radius_x = radius_x * 0.56
+            highlight_radius_y = radius_y * 0.44
+            painter.drawEllipse(
+                QRectF(
+                    center_x - highlight_radius_x + highlight_x,
+                    center_y - highlight_radius_y + highlight_y,
+                    highlight_radius_x * 2.0,
+                    highlight_radius_y * 2.0,
+                )
+            )
+
         painter.restore()
 
     painter.restore()

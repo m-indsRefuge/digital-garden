@@ -76,6 +76,7 @@ class QPainterShellRenderer:
         style = scene_style(state)
         lighting = scene_lighting(style)
         ground = build_ground_scene(state, style)
+        bonsai = build_bonsai_scene(state, style)
 
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(23, 52, 33, 220))
@@ -84,7 +85,7 @@ class QPainterShellRenderer:
         paint_ground_shadow(painter, ground, lighting)
         paint_ground(painter, ground, style)
         paint_edge_vines(painter, build_edge_vine_scene(state, style), style)
-        paint_bonsai(painter, build_bonsai_scene(state, style), style)
+        paint_bonsai(painter, bonsai, style, lighting)
 
         painter.setPen(QColor("#E7F2DB"))
         painter.drawText(

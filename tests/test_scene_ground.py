@@ -67,6 +67,18 @@ def test_dense_ground_composes_all_stable_botanical_detail_families() -> None:
     assert scene.stones
 
 
+def test_ground_material_marks_are_seed_stable_and_seed_specific() -> None:
+    state = _render_state()
+    first = build_ground_scene(state, scene_style(state))
+    again = build_ground_scene(state, scene_style(state))
+    other_state = replace(state, seed=8)
+    other = build_ground_scene(other_state, scene_style(other_state))
+
+    assert first.material_marks == again.material_marks
+    assert first.material_marks != other.material_marks
+    assert len(first.material_marks) >= 18
+
+
 def test_paint_ground_draws_a_prepared_organic_patch() -> None:
     state = _render_state()
     style = scene_style(state)

@@ -41,12 +41,21 @@ class SceneBounds:
 
 
 @dataclass(frozen=True)
+class CanopyLobe:
+    offset_x: float
+    offset_y: float
+    scale_x: float
+    scale_y: float
+
+
+@dataclass(frozen=True)
 class CanopyCluster:
     center_x: float
     center_y: float
     radius_x: float
     radius_y: float
     rotation: float
+    lobes: tuple[CanopyLobe, ...]
 
 
 @dataclass(frozen=True)
@@ -81,6 +90,14 @@ _CANOPY_SITES = (
     (316.0, 97.0, 37.0, 22.0, 15.0),
     (236.0, 94.0, 34.0, 21.0, -8.0),
     (365.0, 142.0, 31.0, 19.0, 8.0),
+)
+
+_CANOPY_LOBE_TEMPLATES = (
+    (-0.30, -0.04, 0.52, 0.52),
+    (0.28, -0.08, 0.50, 0.48),
+    (-0.08, 0.25, 0.56, 0.44),
+    (-0.08, -0.28, 0.46, 0.42),
+    (0.25, 0.22, 0.43, 0.40),
 )
 
 _TRUNK = BezierStroke(
@@ -210,6 +227,24 @@ def _flared_root(root: BezierStroke, flare: float) -> BezierStroke:
         control_two=_scale_from_origin(root.control_two, root.start, flare),
         end=_scale_from_origin(root.end, root.start, flare),
         width=root.width * flare,
+    )
+
+
+def _canopy_lobes(seed: int, cluster_index: int) -> tuple[CanopyLobe, ...]:
+    return tuple(
+        CanopyLobe(
+            offset_x=offset_x
+            + (stable_unit(seed, f"canopy-lobe-x-{cluster_index}", lobe_index) - 0.5) * 0.06,
+            offset_y=offset_y
+            + (stable_unit(seed, f"canopy-lobe-y-{cluster_index}", lobe_index) - 0.5) * 0.06,
+            scale_x=scale_x
+            + (stable_unit(seed, f"canopy-lobe-width-{cluster_index}", lobe_index) - 0.5) * 0.04,
+            scale_y=scale_y
+            + (stable_unit(seed, f"canopy-lobe-height-{cluster_index}", lobe_index) - 0.5) * 0.04,
+        )
+        for lobe_index, (offset_x, offset_y, scale_x, scale_y) in enumerate(
+            _CANOPY_LOBE_TEMPLATES
+        )
     )
 
 
@@ -380,6 +415,7 @@ def build_bonsai_scene(
             * style.canopy_spread
             * (0.88 + stable_unit(state.seed, "canopy-height", index) * 0.22),
             rotation=rotation + (stable_unit(state.seed, "canopy-rotation", index) - 0.5) * 8.0,
+            lobes=_canopy_lobes(state.seed, index),
         )
         for index, (center_x, center_y, radius_x, radius_y, rotation) in enumerate(
             _CANOPY_SITES[:visible_count]

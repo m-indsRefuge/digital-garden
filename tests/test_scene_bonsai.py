@@ -1,6 +1,6 @@
 from dataclasses import replace
 
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtGui import QImage, QPainter
 
 from digital_garden.desktop.presentation import GardenRenderState
@@ -87,6 +87,33 @@ def test_canopy_lobes_affect_the_rendered_bonsai_surface() -> None:
         textured.pixelColor(x, y) != plain.pixelColor(x, y)
         for x in range(140, 410, 2)
         for y in range(65, 220, 2)
+    )
+
+
+def test_structural_shadow_offset_affects_trunk_and_root_rendering() -> None:
+    state = _render_state()
+    style = scene_style(state)
+    scene = build_bonsai_scene(state, style)
+    structural_scene = replace(scene, canopy=(), branches=())
+    lighting = scene_lighting(style)
+    unshifted = replace(lighting, shadow_offset=QPointF(0.0, 0.0))
+    shifted = replace(lighting, shadow_offset=QPointF(11.0, 12.0))
+
+    def painted(prepared_lighting):
+        image = QImage(520, 420, QImage.Format.Format_ARGB32_Premultiplied)
+        image.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(image)
+        paint_bonsai(painter, structural_scene, style, prepared_lighting)
+        painter.end()
+        return image
+
+    baseline = painted(unshifted)
+    shadowed = painted(shifted)
+
+    assert any(
+        baseline.pixelColor(x, y) != shadowed.pixelColor(x, y)
+        for x in range(160, 370, 2)
+        for y in range(135, 355, 2)
     )
 
 

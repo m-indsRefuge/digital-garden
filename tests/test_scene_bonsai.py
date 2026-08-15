@@ -9,6 +9,7 @@ from digital_garden.desktop.scene.bonsai import (
     build_bonsai_scene,
     paint_bonsai,
 )
+from digital_garden.desktop.scene.lighting import scene_lighting
 from digital_garden.desktop.scene.style import scene_style
 
 
@@ -64,6 +65,7 @@ def test_canopy_clusters_have_seed_stable_irregular_lobes() -> None:
 def test_canopy_lobes_affect_the_rendered_bonsai_surface() -> None:
     state = _render_state()
     style = scene_style(state)
+    lighting = scene_lighting(style)
     scene = build_bonsai_scene(state, style)
     plain_scene = replace(
         scene,
@@ -74,7 +76,7 @@ def test_canopy_lobes_affect_the_rendered_bonsai_surface() -> None:
         image = QImage(520, 420, QImage.Format.Format_ARGB32_Premultiplied)
         image.fill(Qt.GlobalColor.transparent)
         painter = QPainter(image)
-        paint_bonsai(painter, prepared_scene, style)
+        paint_bonsai(painter, prepared_scene, style, lighting)
         painter.end()
         return image
 
@@ -126,11 +128,17 @@ def test_bonsai_scene_exposes_bounds_inside_the_expanded_patch() -> None:
 
 def test_paint_bonsai_draws_a_prepared_scene_without_garden_access() -> None:
     state = _render_state()
+    style = scene_style(state)
     image = QImage(520, 420, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(Qt.GlobalColor.transparent)
     painter = QPainter(image)
 
-    paint_bonsai(painter, build_bonsai_scene(state, scene_style(state)), scene_style(state))
+    paint_bonsai(
+        painter,
+        build_bonsai_scene(state, style),
+        style,
+        scene_lighting(style),
+    )
     painter.end()
 
     assert any(

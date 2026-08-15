@@ -71,11 +71,7 @@ def test_paint_edge_vines_draws_a_prepared_scene_model() -> None:
     paint_edge_vines(painter, build_edge_vine_scene(state, style), style)
     painter.end()
 
-    assert any(
-        image.pixelColor(x, y).alpha() > 0
-        for x in range(420, 520)
-        for y in range(240, 390)
-    )
+    assert any(image.pixelColor(x, y).alpha() > 0 for x in range(420, 520) for y in range(240, 390))
 
 
 def test_paint_anchor_vine_draws_the_prepared_compact_scene() -> None:
@@ -88,11 +84,7 @@ def test_paint_anchor_vine_draws_the_prepared_compact_scene() -> None:
     paint_anchor_vine(painter, build_anchor_vine_scene(state, style), style)
     painter.end()
 
-    assert any(
-        image.pixelColor(x, y).alpha() > 0
-        for x in range(15, 80)
-        for y in range(8, 172)
-    )
+    assert any(image.pixelColor(x, y).alpha() > 0 for x in range(15, 80) for y in range(8, 172))
 
 
 def test_vine_masks_are_derived_from_the_prepared_geometry() -> None:

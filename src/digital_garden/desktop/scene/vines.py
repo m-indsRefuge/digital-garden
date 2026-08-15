@@ -48,6 +48,7 @@ class VineLeaf:
 @dataclass(frozen=True)
 class EdgeVineScene:
     stems: tuple[VineStem, ...]
+    leaves: tuple[VineLeaf, ...]
 
 
 @dataclass(frozen=True)
@@ -132,6 +133,9 @@ def edge_vine_mask_region(scene: EdgeVineScene) -> QRegion:
     for stem in scene.stems:
         region = region.united(_stem_region(stem))
 
+    for leaf in scene.leaves:
+        region = region.united(_leaf_region(leaf))
+
     return region
 
 
@@ -205,7 +209,10 @@ def build_edge_vine_scene(
     stems = tuple(
         _edge_stem(candidate.x, candidate.y, candidate.scale, extent) for candidate in visible
     )
-    return EdgeVineScene(stems=stems)
+    return EdgeVineScene(
+        stems=stems,
+        leaves=_edge_leaves(state, stems, extent),
+    )
 
 
 def _edge_stem(x: float, y: float, scale: float, extent: float) -> VineStem:
@@ -219,6 +226,44 @@ def _edge_stem(x: float, y: float, scale: float, extent: float) -> VineStem:
         end=end,
         width=1.6 + scale * 1.1,
     )
+
+
+def _edge_leaves(
+    state: GardenRenderState,
+    stems: tuple[VineStem, ...],
+    extent: float,
+) -> tuple[VineLeaf, ...]:
+    leaves = []
+    leaves_per_stem = 1 + int(extent >= 0.55)
+
+    for stem_index, stem in enumerate(stems):
+        for leaf_index in range(leaves_per_stem):
+            identity = stem_index * 2 + leaf_index
+            progress = 0.62 + leaf_index * 0.20
+            center_x = stem.start.x + (stem.end.x - stem.start.x) * progress
+            center_y = stem.start.y + (stem.end.y - stem.start.y) * progress
+            side = -1.0 if identity % 2 else 1.0
+            leaves.append(
+                VineLeaf(
+                    center=VinePoint(
+                        center_x
+                        + side
+                        * (3.0 + stable_unit(state.seed, "edge-leaf-x", identity) * 3.0),
+                        center_y
+                        + (stable_unit(state.seed, "edge-leaf-y", identity) - 0.5) * 5.0,
+                    ),
+                    radius_x=4.0
+                    + stable_unit(state.seed, "edge-leaf-width", identity) * 2.5,
+                    radius_y=2.4
+                    + stable_unit(state.seed, "edge-leaf-height", identity) * 1.8,
+                    angle=(-34.0 if side < 0.0 else 28.0)
+                    + (stable_unit(state.seed, "edge-leaf-angle", identity) - 0.5) * 12.0,
+                    form="pointed" if identity % 2 else "round",
+                    opacity=0.64 + extent * 0.28,
+                )
+            )
+
+    return tuple(leaves)
 
 
 def build_anchor_vine_scene(

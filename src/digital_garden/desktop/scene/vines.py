@@ -1,7 +1,15 @@
 from dataclasses import dataclass
 
-from PySide6.QtCore import QPointF, Qt
-from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
+from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtGui import (
+    QColor,
+    QPainter,
+    QPainterPath,
+    QPainterPathStroker,
+    QPen,
+    QRegion,
+    QTransform,
+)
 
 from digital_garden.desktop.presentation import GardenRenderState
 from digital_garden.desktop.scene.style import Color, SceneStyle
@@ -68,6 +76,94 @@ def _stem_path(stem: VineStem) -> QPainterPath:
     return path
 
 
+def _stem_region(stem: VineStem, padding: float = 6.0) -> QRegion:
+    stroker = QPainterPathStroker()
+    stroker.setWidth(stem.width + padding)
+    stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
+    stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+    return QRegion(stroker.createStroke(_stem_path(stem)).toFillPolygon().toPolygon())
+
+
+def _leaf_path(leaf: VineLeaf) -> QPainterPath:
+    path = QPainterPath()
+
+    if leaf.form == "round":
+        path.addEllipse(
+            QRectF(
+                -leaf.radius_x,
+                -leaf.radius_y,
+                leaf.radius_x * 2.0,
+                leaf.radius_y * 2.0,
+            )
+        )
+    else:
+        path.moveTo(-leaf.radius_x, 0.0)
+        path.cubicTo(
+            -leaf.radius_x * 0.42,
+            -leaf.radius_y,
+            leaf.radius_x * 0.46,
+            -leaf.radius_y,
+            leaf.radius_x,
+            0.0,
+        )
+        path.cubicTo(
+            leaf.radius_x * 0.46,
+            leaf.radius_y,
+            -leaf.radius_x * 0.42,
+            leaf.radius_y,
+            -leaf.radius_x,
+            0.0,
+        )
+        path.closeSubpath()
+
+    transform = QTransform()
+    transform.translate(leaf.center.x, leaf.center.y)
+    transform.rotate(leaf.angle)
+    return transform.map(path)
+
+
+def _leaf_region(leaf: VineLeaf) -> QRegion:
+    return QRegion(_leaf_path(leaf).toFillPolygon().toPolygon())
+
+
+def edge_vine_mask_region(scene: EdgeVineScene) -> QRegion:
+    region = QRegion()
+
+    for stem in scene.stems:
+        region = region.united(_stem_region(stem))
+
+    return region
+
+
+def anchor_vine_mask_region(scene: AnchorVineScene) -> QRegion:
+    region = QRegion()
+
+    for stem in scene.stems:
+        region = region.united(_stem_region(stem))
+
+    for leaf in scene.leaves:
+        region = region.united(_leaf_region(leaf))
+
+    return region
+
+
+def _paint_stems(
+    painter: QPainter,
+    stems: tuple[VineStem, ...],
+    style: SceneStyle,
+    alpha: int,
+) -> None:
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+
+    for stem in stems:
+        pen = QPen(_qcolor(style.palette.vine, alpha))
+        pen.setWidthF(stem.width)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        painter.drawPath(_stem_path(stem))
+
+
 def paint_edge_vines(
     painter: QPainter,
     scene: EdgeVineScene,
@@ -75,15 +171,26 @@ def paint_edge_vines(
 ) -> None:
     painter.save()
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    painter.setBrush(Qt.BrushStyle.NoBrush)
+    _paint_stems(painter, scene.stems, style, 210)
+    painter.restore()
 
-    for stem in scene.stems:
-        pen = QPen(_qcolor(style.palette.vine, 210))
-        pen.setWidthF(stem.width)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        painter.setPen(pen)
-        painter.drawPath(_stem_path(stem))
+
+def paint_anchor_vine(
+    painter: QPainter,
+    scene: AnchorVineScene,
+    style: SceneStyle,
+) -> None:
+    painter.save()
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    _paint_stems(painter, scene.stems, style, 226)
+
+    painter.setPen(Qt.PenStyle.NoPen)
+    for leaf in scene.leaves:
+        painter.save()
+        painter.setOpacity(leaf.opacity)
+        painter.setBrush(_qcolor(style.palette.anchor_leaf))
+        painter.drawPath(_leaf_path(leaf))
+        painter.restore()
 
     painter.restore()
 

@@ -1,9 +1,10 @@
 from dataclasses import replace
 
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtGui import QImage, QPainter
 
 from digital_garden.desktop.presentation import GardenRenderState
+from digital_garden.desktop.scene.lighting import scene_lighting
 from digital_garden.desktop.scene.style import scene_style
 from digital_garden.desktop.scene.vines import (
     anchor_vine_mask_region,
@@ -57,6 +58,44 @@ def test_edge_vines_gain_seed_stable_leaves_as_extent_grows() -> None:
 
     assert high == high_again
     assert len(high.leaves) > len(low.leaves)
+
+
+def test_edge_vine_paint_responds_to_scene_lighting() -> None:
+    state = replace(_render_state(), vine_extent=0.90)
+    style = scene_style(state)
+    scene = build_edge_vine_scene(state, style)
+    lighting = scene_lighting(style)
+    neutral = replace(
+        lighting,
+        shadow_offset=QPointF(0.0, 0.0),
+        highlight_offset=QPointF(0.0, 0.0),
+        shadow_alpha=0,
+        highlight_alpha=0,
+    )
+    directional = replace(
+        lighting,
+        shadow_offset=QPointF(6.0, 7.0),
+        highlight_offset=QPointF(-3.0, -4.0),
+        shadow_alpha=84,
+        highlight_alpha=116,
+    )
+
+    def painted(prepared_lighting):
+        image = QImage(520, 420, QImage.Format.Format_ARGB32_Premultiplied)
+        image.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(image)
+        paint_edge_vines(painter, scene, style, prepared_lighting)
+        painter.end()
+        return image
+
+    flat = painted(neutral)
+    lit = painted(directional)
+
+    assert any(
+        flat.pixelColor(x, y) != lit.pixelColor(x, y)
+        for x in range(420, 520, 2)
+        for y in range(240, 390, 2)
+    )
 
 
 def test_anchor_state_controls_compact_vine_vitality_and_leaf_forms() -> None:

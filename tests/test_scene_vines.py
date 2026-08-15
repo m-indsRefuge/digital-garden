@@ -120,7 +120,12 @@ def test_paint_edge_vines_draws_a_prepared_scene_model() -> None:
     image.fill(Qt.GlobalColor.transparent)
     painter = QPainter(image)
 
-    paint_edge_vines(painter, build_edge_vine_scene(state, style), style)
+    paint_edge_vines(
+        painter,
+        build_edge_vine_scene(state, style),
+        style,
+        scene_lighting(style),
+    )
     painter.end()
 
     assert any(image.pixelColor(x, y).alpha() > 0 for x in range(420, 520) for y in range(240, 390))
@@ -133,7 +138,12 @@ def test_paint_anchor_vine_draws_the_prepared_compact_scene() -> None:
     image.fill(Qt.GlobalColor.transparent)
     painter = QPainter(image)
 
-    paint_anchor_vine(painter, build_anchor_vine_scene(state, style), style)
+    paint_anchor_vine(
+        painter,
+        build_anchor_vine_scene(state, style),
+        style,
+        scene_lighting(style),
+    )
     painter.end()
 
     assert any(image.pixelColor(x, y).alpha() > 0 for x in range(15, 80) for y in range(8, 172))
@@ -151,6 +161,9 @@ def test_vine_masks_are_derived_from_the_prepared_geometry() -> None:
     for stem in edge.stems:
         assert edge_mask.contains(QPoint(round(stem.start.x), round(stem.start.y)))
         assert edge_mask.contains(QPoint(round(stem.end.x), round(stem.end.y)))
+
+    for leaf in edge.leaves:
+        assert edge_mask.contains(QPoint(round(leaf.center.x), round(leaf.center.y)))
 
     for stem in anchor.stems:
         assert anchor_mask.contains(QPoint(round(stem.start.x), round(stem.start.y)))
